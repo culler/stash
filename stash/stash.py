@@ -1,0 +1,191 @@
+#   This file is part of the program Stash.
+#   Stash helps you to stash your files, and find them later.
+#
+#   Copyright (C) 2010 by Marc Culler and others. 
+#
+#   This program is free software: you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation, either version 3 of the License, or
+#   (at your option) any later version.  In addition, python modules
+#   distributed with this program may be included in works which are
+#   licensed under terms compatible with version 2 of the License.
+#
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+#   along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+#   EMAIL: culler@users.sourceforge.net
+#   URL:  http://sourceforge.net/projects/filestash
+
+from .betree import BeTree
+import os, sys, sqlite3, webbrowser, shutil
+
+class StashError(Exception):
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return repr(self.value)
+
+class SearchKey:
+    """
+    A Stash's view of a column in the .info database.
+    """
+    sql2keytype = {
+        'varchar'  : 'text',
+        'date '    : 'date',
+        'datetime' : 'datetime'}
+
+    keytype2sql = {
+            'text': 'varchar(128)',
+            'date': 'date',
+        'datetime': 'datetime'}
+
+    def __init__(self, row, fromsql=True):
+        self.key = str(row[1])
+        if fromsql:
+            self.sqltype = row[2]
+            for key in SearchKey.sql2keytype:
+                if (row[2] + ' ').startswith(key):
+                    self.type = SearchKey.sql2keytype[key]
+                    return
+            raise StashError('Invalid table.')
+        else:
+            self.type = row[2] 
+            try:
+                self.sqltype = SearchKey.keytype2sql[self.type]
+            except KeyError:
+                types = SearchKey.keytype2sql.keys()
+                types.sort()
+                raise StashError('Available key types are: ' +  ', '.join(types))
+
+    def __repr__(self):
+        return '%s (%s)'%(self.key, self.type)
+
+class Stash:
+    """
+    A searchable stash of files.
+    """
+    def __init__(self):
+        self.tree = None
+        self.connection = None
+        self.stashdir = None
+        self.search_keys = []
+
+    def open(self, dirname):
+        self.stashdir = os.path.abspath(dirname)
+        rootdir =  os.path.join(dirname, '.files')
+        database = os.path.join(dirname, '.info')
+        if not os.path.isdir(dirname):
+            raise StashError('There is no stash named %s.'%dirname)
+        elif not os.path.isdir(rootdir) or not os.path.isfile(database):
+            raise StashError('The directory %s is not a valid stash.'%dirname)
+        else:
+            self.tree = BeTree(os.path.abspath(rootdir))
+            self.connection = sqlite3.connect(database)
+            self.connection.row_factory = sqlite3.Row
+            self.init_search_keys()
+
+    def create(self, dirname):
+        if os.path.lexists(dirname):
+            raise StashError('The path %s is in use.'%os.path.abspath(dirname))
+        else:
+            self.stashdir = os.path.abspath(dirname)
+            rootdir = os.path.join(dirname, '.files')
+            database = os.path.join(dirname, '.info')
+            os.mkdir(dirname)
+            os.mkdir(rootdir)
+            self.connection = sqlite3.connect(database)
+            self.connection.execute("""
+                create table files (
+                    hash varchar(64),
+                    filename varchar(128),
+                    timestamp datetime)""")
+            self.connection.execute("""
+                create table preferences (
+                    name varchar(64) not null,
+                    value varchar(128),
+                    target varchar(64) not null,
+                    unique (name, target)
+                    on conflict replace)""")
+            self.tree = BeTree(os.path.abspath(rootdir))
+                     
+    def init_search_keys(self):
+        self.search_keys = []
+        result = self.connection.execute('pragma table_info(files)')
+        next(result)
+        for row in result:
+            self.search_keys.append(SearchKey(row))
+
+    def add_search_key(self, key, type):
+        sqltype = SearchKey([0, key, type], fromsql=False).sqltype
+        query = 'alter table files add column %s %s'%(key, sqltype)
+        self.connection.execute(query)
+        self.connection.commit()
+        self.init_search_keys()
+
+    def insert_file(self, filename, value_dict):
+        try:
+            hash = self.tree.insert(filename)
+        except ValueError:
+            raise StashError('That file is already stored in the stash!')
+        query = """insert into files (hash, filename, timestamp)
+                   values (?, ?, datetime('now'))"""
+        self.connection.execute(query,(hash, os.path.basename(filename)))
+        self.connection.commit()
+        if value_dict:
+            self.set_search_keys(value_dict, hash)
+
+    def delete_file(self, md5_hash):
+        self.tree.delete(md5_hash)
+        query = "delete from files where hash='%s'"%md5_hash
+        self.connection.execute(query)
+        self.connection.commit()
+
+    def export_file(self, md5_hash, export_path):
+        if os.path.exists(export_path):
+            raise StashError('File exists.')
+        source = open(self.tree.find(md5_hash), 'rb')
+        target = open(export_path, 'wb')
+        while True:
+            block = source.read(8192)
+            if not block:
+                break
+            target.write(block)
+        source.close()
+        target.close()
+    
+    def view_file(self, md5_hash):
+        webbrowser.open_new_tab('file://%s'%self.tree.find(md5_hash))
+
+    def set_search_keys(self, value_dict, hash):
+        query = 'update files set '
+        query += ', '.join(["%s='%s'"%(key, value_dict[key].replace("'","''"))
+                            for key in value_dict.keys()])
+        query += " where hash='%s'"%hash
+        self.connection.execute(query)
+        self.connection.commit()
+
+    def find_files(self, where_clause):
+        query = 'select * from files where ' + where_clause
+        result = self.connection.execute(query)
+        return result.fetchall()
+
+    def set_preference(self, name, value, target='_all_'):
+        query = """insert into preferences values ('%s', '%s', '%s')"""
+        result = self.connection.execute(query%(name, value, target))
+        self.connection.commit()
+
+    def get_preference(self, name):
+        query = "select * from preferences where name='%s'"%name
+        return self.connection.execute(query).fetchall()
+
+    def close(self):
+        if self.connection:
+            self.connection.close()
+            self.connection = None
+        self.stashdir = None
