@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 #   This file is part of the program Stash.
 #   Stash helps you to stash your files, and find them later.
 #
@@ -24,6 +22,7 @@
 #   URL:  http://sourceforge.net/projects/filestash
 
 import os, sys
+this_python = 'python%s.%s'%(sys.version_info[:2])
 
 from stash.version import version
 print('Cleaning out old stuff for a clean build.')
@@ -31,7 +30,7 @@ os.system('rm -rf build dist')
 
 print('Building version %s.'%version)
 basename = 'Stash-%s'%version
-os.system('python setup.py py2app')
+os.system('%s setup.py py2app'%this_python)
 
 print('Throwing away garbage.')
 resource_dir = 'dist/Stash.app/Contents/Frameworks/Tk.framework/Resources/'
@@ -56,4 +55,4 @@ print('Building disk image.')
 os.system('hdiutil create -srcfolder %s %s.dmg'%(basename, basename))
 
 print('Building new egg')
-os.system('python setup.py bdist_egg')
+os.system('%s setup.py bdist_egg'%this_python)
