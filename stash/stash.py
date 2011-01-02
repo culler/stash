@@ -77,6 +77,9 @@ class Stash:
         self.search_keys = []
 
     def open(self, dirname):
+        """
+        Attach an existing stash directory.
+        """
         self.stashdir = os.path.abspath(dirname)
         rootdir =  os.path.join(dirname, '.files')
         database = os.path.join(dirname, '.info')
@@ -91,6 +94,9 @@ class Stash:
             self.init_search_keys()
 
     def create(self, dirname):
+        """
+        Create a new stash directory.
+        """
         if os.path.lexists(dirname):
             raise StashError('The path %s is in use.'%os.path.abspath(dirname))
         else:
@@ -115,6 +121,9 @@ class Stash:
             self.tree = BeTree(os.path.abspath(rootdir))
                      
     def init_search_keys(self):
+        """
+        Find the search keys for this stash.
+        """
         self.search_keys = []
         result = self.connection.execute('pragma table_info(files)')
         next(result)
@@ -122,6 +131,9 @@ class Stash:
             self.search_keys.append(SearchKey(row))
 
     def add_search_key(self, key, type):
+        """
+        Add a new search key.
+        """
         sqltype = SearchKey([0, key, type], fromsql=False).sqltype
         query = 'alter table files add column %s %s'%(key, sqltype)
         self.connection.execute(query)
@@ -129,6 +141,9 @@ class Stash:
         self.init_search_keys()
 
     def insert_file(self, filename, value_dict):
+        """
+        Insert a file into the filesystem-based B-tree.
+        """
         try:
             hash = self.tree.insert(filename)
         except ValueError:
@@ -141,12 +156,18 @@ class Stash:
             self.set_search_keys(value_dict, hash)
 
     def delete_file(self, md5_hash):
+        """
+        Remove a file from the filesystem-based B-tree.
+        """
         self.tree.delete(md5_hash)
         query = "delete from files where hash='%s'"%md5_hash
         self.connection.execute(query)
         self.connection.commit()
 
     def export_file(self, md5_hash, export_path):
+        """
+        Copy a file in the stash to another location.
+        """
         if os.path.exists(export_path):
             raise StashError('File exists.')
         source = open(self.tree.find(md5_hash), 'rb')
@@ -160,9 +181,15 @@ class Stash:
         target.close()
     
     def view_file(self, md5_hash):
+        """
+        Open a viewer for a file.
+        """
         webbrowser.open_new_tab('file://%s'%self.tree.find(md5_hash))
 
     def set_search_keys(self, value_dict, hash):
+        """
+        Update the metadata for a file.
+        """
         query = 'update files set '
         query += ', '.join(["%s='%s'"%(key, value_dict[key].replace("'","''"))
                             for key in value_dict.keys()])
@@ -171,20 +198,32 @@ class Stash:
         self.connection.commit()
 
     def find_files(self, where_clause):
+        """
+        Query the metadata database.
+        """
         query = 'select * from files where ' + where_clause
         result = self.connection.execute(query)
         return result.fetchall()
 
     def set_preference(self, name, value, target='_all_'):
+        """
+        Save a preference in the preferences table.
+        """
         query = """insert into preferences values ('%s', '%s', '%s')"""
         result = self.connection.execute(query%(name, value, target))
         self.connection.commit()
 
     def get_preference(self, name):
+        """
+        Retrieve a preference from the preferences table.
+        """
         query = "select * from preferences where name='%s'"%name
         return self.connection.execute(query).fetchall()
 
     def close(self):
+        """
+        Detach a stash directory.
+        """
         if self.connection:
             self.connection.close()
             self.connection = None

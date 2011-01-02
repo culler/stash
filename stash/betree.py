@@ -42,9 +42,15 @@ class BeItem:
         return self.hash == other.hash
 
     def basename(self):
+        """
+        Return the filename associated with this leaf.
+        """
         return repr(self)
 
     def path(self):
+        """
+        Return the pathname associated with this leaf.
+        """
         return os.path.join(self.parent.path(), self.basename())
 
     def rename_dir(self, old):
@@ -86,11 +92,14 @@ class BeThing(List):
         list.sort(self, key=lambda x : x.hash)
 
     def basename(self):
+        """
+        Return the directory name associated with this node.
+        """
         return self.hash
 
     def address(self):
         """
-        Return the address of this node from the root.
+        Return the tree address of this node from the root.
         """
         if self.parent is None:
             return []
@@ -342,11 +351,17 @@ class BeNode(BeThing):
             node.validate()
 
     def insert_item(self, item):
+        """
+        Add a child to this node.
+        """
         for node in self:
             if item.hash <= node.hash: break
         node.insert_item(item)
 
     def delete_item(self, item):
+        """
+        Delete a child of this node.
+        """
         for node in self:
             if item.hash <= node.hash: break
         node.delete_item(item)
@@ -405,6 +420,9 @@ class BeLeaf(BeThing):
             assert self.hash == self[-1].hash, str(self)
 
     def insert_item(self, item):
+        """
+        Add an item to this leaf node.
+        """
         if item in self:
             raise ValueError('Insertion of existing item.')
         self.append(item)
@@ -415,6 +433,9 @@ class BeLeaf(BeThing):
         self.split()
 
     def delete_item(self, fake_item):
+        """
+        Delete an item from this leaf node.
+        """
         try:
             n = self.index(fake_item)
         except ValueError:
@@ -470,12 +491,21 @@ class BeTree:
         return len(self.root.as_list())
 
     def depth(self):
+        """
+        Return the depth of this B-tree.
+        """
         return self.root.depth()
 
     def validate(self):
+        """
+        Verify the B-tree structure.
+        """
         self.root.validate()
 
     def md5(self, filename):
+        """
+        Compute the md5 hex digest of a file.
+        """
         infile = open(filename, 'rb')
         hasher = hashlib.md5()
         while True:
@@ -487,6 +517,9 @@ class BeTree:
         return hasher.hexdigest()
 
     def insert(self, filename):
+        """
+        Add an item to the B-tree.
+        """
         name, extension = os.path.splitext(filename)
         digest = self.md5(filename)
         item = BeItem(digest + extension, source=os.path.abspath(filename))
@@ -496,6 +529,9 @@ class BeTree:
         return digest
 
     def delete(self, filename):
+        """
+        Remove an item from the B-tree.
+        """
         newroot = self.root.delete_item(BeItem(filename))
         if newroot:
             self.root = newroot
@@ -508,7 +544,7 @@ class BeTree:
 
     def dirtree(self, path):
         """
-        Represent the structure of a directory as a list of lists.
+        Represent the structure of this B-tree as a list of lists.
         """
         if os.path.isfile(path):
             return os.path.basename(path)

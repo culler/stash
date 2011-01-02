@@ -27,9 +27,10 @@ try:
 except ImportError:
     from .fod import FakeOrderedDict as OrderedDict
 from .stash import Stash, StashError
+from .version import version
 import Tkinter as tk
 from tkFileDialog import askdirectory, askopenfilename, asksaveasfilename
-from tkMessageBox import showerror, showwarning
+from tkMessageBox import showerror, showwarning, showinfo
 from tkSimpleDialog import Dialog
 import os
 import sys
@@ -403,8 +404,6 @@ class StashViewer():
             title = 'Create Search Keys'
         else:
             title = 'Manage Search Keys'
-        # dialog does not get focus
-        # left panes have width 0
         dialog = KeyEditor(self.root,
                            self.stash.search_keys,
                            title=title)
@@ -592,7 +591,17 @@ class StashApp:
         root.config(menu=menubar)        
 
     def about(self):
-        pass
+        showinfo(title='About Stash',
+                 message=u"""
+This is version %s of Stash, copyright \u00a9 2010 by Marc Culler.
+
+Stash is distributed under the GNU Public License, version 3 or higher.
+ 
+Stash is written in python, using the SQLite file-based database and \
+the Tk toolkit.
+
+To download Stash visit the sourceforge page:
+http://sourceforge.net/filestash"""%version)
 
     def quit(self):
         for stash in [x for x in self.viewers]:
