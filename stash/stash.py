@@ -186,14 +186,14 @@ class Stash:
         """
         webbrowser.open_new_tab('file://%s'%self.tree.find(md5_hash))
 
-    def set_search_keys(self, value_dict, hash):
+    def set_search_keys(self, value_dict, md5_hash):
         """
         Update the metadata for a file.
         """
         query = 'update files set '
         query += ', '.join(["%s='%s'"%(key, value_dict[key].replace("'","''"))
                             for key in value_dict.keys()])
-        query += " where hash='%s'"%hash
+        query += " where hash='%s'"%md5_hash
         self.connection.execute(query)
         self.connection.commit()
 
