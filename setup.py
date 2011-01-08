@@ -31,5 +31,12 @@ setup(name='Stash',
       author_email='marc.culler@gmail.com',
       url='http://bittersweet.homeip.net',
       packages=['stash'],
+      zip_safe=False,
+      package_data = {
+        'stash' : ['doc/*.*',
+                   'doc/_images/*',
+                   'doc/_sources/*',
+                   'doc/_static/*']
+        },
       entry_points = {'console_scripts': ['stash = stash.app:main']}
 )

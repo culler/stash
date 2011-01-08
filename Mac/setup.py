@@ -25,13 +25,14 @@ import sys
 from setuptools import setup
 sys.path.append('stash')
 from version import version
+import glob
 
 APP = ['Stash.py']
 PACKAGES = ['stash']
-DATAFILES = []
 OPTIONS = {'argv_emulation': True,
            'iconfile': 'stash_icon.icns',
            'dylib_excludes': 'Tcl.framework',
+           'resources': 'doc'
 }
 
 setup(
@@ -39,7 +40,6 @@ setup(
     version = version,
     app=APP,
     packages=PACKAGES,
-    data_files=DATAFILES,
     options={'py2app': OPTIONS},
     setup_requires=['py2app'],
     author = 'Marc Culler',

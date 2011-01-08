@@ -26,7 +26,7 @@ try:
     from collections import OrderedDict
 except ImportError:
     from .fod import FakeOrderedDict as OrderedDict
-from .stash import Stash, StashError
+from .stash import Stash, StashError, __file__ as stashfile
 from .version import version
 import Tkinter as tk
 from tkFileDialog import askdirectory, askopenfilename, asksaveasfilename
@@ -34,7 +34,13 @@ from tkMessageBox import showerror, showwarning, showinfo
 from tkSimpleDialog import Dialog
 import os
 import sys
+import webbrowser
+from urllib import pathname2url
 
+if sys.path[0].endswith('Resources'):
+    stash_doc_path = os.path.join(sys.path[0], 'doc', 'index.html')
+else:
+  stash_doc_path = os.path.join(os.path.dirname(stashfile), 'doc', 'index.html')
 
 class Scrollbar(tk.Scrollbar):
     """
@@ -658,7 +664,7 @@ http://sourceforge.net/filestash"""%version)
         self.launch_viewer(newstash, new=True)
 
     def help(self):
-        pass
+        webbrowser.open('file:' + stash_doc_path)
 
     def run(self):
         self.root.mainloop()

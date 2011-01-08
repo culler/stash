@@ -49,10 +49,5 @@ elif not os.path.islink(basename):
     print('%s should be a link!'%basename)
     sys.exit(-1)
 
-print('Removing old eggs.')
-os.system('rm %s'%os.path.join(basename, '*.egg'))
 print('Building disk image.')
 os.system('hdiutil create -srcfolder %s %s.dmg'%(basename, basename))
-
-print('Building new egg')
-os.system('%s setup.py bdist_egg'%this_python)
