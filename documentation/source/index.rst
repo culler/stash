@@ -4,6 +4,10 @@ Stash
 
 *Stash* is designed to help you stash your stuff, and find it again later.
 
+*Stash* is free software and it is provided `without warranty of any kind`__.
+
+__ http://www.gnu.org/licenses/gpl-3.0-standalone.html#section15
+
 OK, but what is it?
 -----------------------------------
 
