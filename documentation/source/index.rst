@@ -1,6 +1,6 @@
 Stash
 =================================
-.. image:: stash_icon.svg
+.. image:: stash_icon.gif
 
 *Stash* is designed to help you stash your stuff, and find it again later.
 
