@@ -34,11 +34,15 @@ from tkMessageBox import showerror, showwarning, showinfo
 from tkSimpleDialog import Dialog
 import os
 import sys
+import time
 import webbrowser
 from urllib import pathname2url
 
 if sys.path[0].endswith('Resources'):
     stash_doc_path = os.path.join(sys.path[0], 'doc', 'index.html')
+elif sys.path[0].endswith('.zip'):
+    bundle = os.path.abspath(os.path.join(sys.path[0], os.path.pardir))
+    stash_doc_path = os.path.join(bundle, 'doc', 'index.html')
 else:
   stash_doc_path = os.path.join(os.path.dirname(stashfile), 'doc', 'index.html')
 
@@ -86,7 +90,7 @@ class StashViewer():
         if prefs:
             self.root.geometry(prefs[0]['value'])
         else:
-            root.geometry('+40+60')
+            root.geometry('+200+80')
         root.title(self.stash_name)
         root.protocol("WM_DELETE_WINDOW", self.close)
         root.grid_columnconfigure(0, weight=1)
@@ -193,9 +197,13 @@ class StashViewer():
         self.mainlist.paneconfigure(pane, padx=0, pady=0)
 
     def set_sashes(self):
-        prefs = self.stash.get_preference('sashes')
-        if prefs:
-            coords = prefs[0]['value'].split(':')
+        pref = self.stash.get_preference('sashes')
+        try:
+            pref_value = pref[0]['value']
+        except IndexError:
+            return
+        if pref_value:
+            coords = pref_value.split(':')
             for N in range(len(coords) - 1, -1, -1):
                 self.root.update()
                 self.mainlist.sash_place(N, coords[N], 0)
@@ -404,15 +412,11 @@ class StashViewer():
                 listbox.itemconfig(index, bg='lightblue')
         self.status.set('')
 
-    def configure(self, new=False):
+    def configure(self):
         self.status.set('Configure Stash.')
-        if new:
-            title = 'Create Search Keys'
-        else:
-            title = 'Manage Search Keys'
         dialog = KeyEditor(self.root,
                            self.stash.search_keys,
-                           title=title)
+                           title='Manage Search Keys')
         for key, type in dialog.result:
             self.stash.add_search_key(key, type)
             self.columns.append(key)
@@ -457,7 +461,8 @@ class MetadataEditor(Dialog):
         R=0
         master.pack_configure(fill=tk.X, expand=1)
         master.grid_rowconfigure(0, weight=1)
-        for key in self.metadata.keys():
+        keys = self.metadata.keys()
+        for key in keys:
             tk.Label(master, text=key+': ').grid(row=R,column=0, sticky=tk.E)
             self.entries[key] = entry = tk.Entry(master, width=40)
             entry.insert(0,self.metadata[key])
@@ -465,6 +470,7 @@ class MetadataEditor(Dialog):
                entry.config(state='readonly') 
             entry.grid(row=R, column=1, sticky=tk.EW)
             R += 1
+        self.entries[keys[0]].focus_set()
 
     def apply(self):
         self.result = OrderedDict()
@@ -474,9 +480,10 @@ class MetadataEditor(Dialog):
 
 class KeyEditor(Dialog):
 
-    def __init__(self, master, search_keys, title=None):
+    def __init__(self, parent, search_keys, title=None, new=False):
         self.search_keys = search_keys
-        Dialog.__init__(self, master, title)
+        self.new = new
+        Dialog.__init__(self, parent, title)
 
     def body(self, master):
         self.resizable(width=True, height=False)
@@ -508,12 +515,22 @@ class KeyEditor(Dialog):
         typechoice.grid(row=1, column=2)
         addbutton=tk.Button(master, text='Add', command=self.add_key)
         addbutton.grid(row=1, column=3)
+        self.cancelled = True
         self.result = []
         return self.keyentry
 
     def buttonbox(self):
-        Dialog.buttonbox(self)
+        box = tk.Frame(self)
+        self.OK = tk.Button(box, text="OK", width=10,
+                            command=self.ok, default=tk.ACTIVE)
+        self.OK.config(state=tk.DISABLED)
+        self.OK.pack(side=tk.LEFT, padx=5, pady=5)
+        self.Cancel = tk.Button(box, text="Cancel", width=10,
+                                command=self.cancel)
+        self.Cancel.pack(side=tk.LEFT, padx=5, pady=5)
+        self.bind('<Escape>', self.cancel)
         self.bind('<Return>', self.add_key)
+        box.pack()
 
     def sb_set(self, widget, lo, hi):
         newtop = widget.nearest(0)
@@ -532,8 +549,16 @@ class KeyEditor(Dialog):
         self.typelist.insert(tk.END, type)
         self.keyentry.delete(0, tk.END)
         self.typevar.set('text')
+        self.OK.config(state=tk.NORMAL)
+
+    def validate(self):
+        if self.new and len(self.result) == 0:
+            return False
+        else:
+            return True
 
     def apply(self):
+        self.cancelled = False
         return self.result
 
 # Menu shortcuts
@@ -572,7 +597,7 @@ class StashApp:
         else:
             root.title('Stash')
             root.option_add('*tearOff', tk.FALSE)
-            root.geometry('300x0+0+0')
+            root.geometry('300x0+100+10')
             root.tk.call('namespace', 'import', '::tk::dialog::file::')
             root.tk.call('set', '::tk::dialog::file::showHiddenBtn',  '1')
             root.tk.call('set', '::tk::dialog::file::showHiddenVar',  '0')
@@ -624,24 +649,17 @@ http://sourceforge.net/filestash"""%version)
             self.launch_viewer(directory)
             self.curdir = os.path.dirname(directory)
 
-    def launch_viewer(self, directory, new=False):
+    def launch_viewer(self, directory):
         try:
             viewer = StashViewer(self, directory)
         except StashError as E:
             showerror('Open Stash', E.value)
             return
+
         self.viewers.append(viewer)
         self.Window_menu.add_command(label=viewer.stash_name,
                                          command=viewer.activate)
-        if new:
-            viewer.root.withdraw()
-            result = viewer.configure(new=True)
-            if result is None:
-                showwarning('Create Metadata',
-                            'No search keys were created.')
-            viewer.root.deiconify()
             
-
     def checkout(self, stash):
         try:
             index = self.viewers.index(stash)
@@ -655,13 +673,22 @@ http://sourceforge.net/filestash"""%version)
             title='Choose a name and location for your stash.')
         if newstash == None or newstash == '':
             return
+        dialog = KeyEditor(self.root,
+                           [],
+                           title='Create Search Keys',
+                           new=True)
+        if dialog.cancelled:
+            return
         temp = Stash()
         try:
             temp.create(newstash)
         except StashError as E:
             showerror('Create New Stash', E.value)
+        for key, type in dialog.result:
+            temp.add_search_key(key, type)
+        temp.close()
         self.curdir = os.path.dirname(newstash)
-        self.launch_viewer(newstash, new=True)
+        self.launch_viewer(newstash)
 
     def help(self):
         webbrowser.open('file:' + stash_doc_path)

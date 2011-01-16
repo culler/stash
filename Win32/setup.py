@@ -23,22 +23,34 @@
 
 from distutils.core import setup
 import py2exe
-from version import version
+from stash.version import version
+from glob import glob
 
 APP = [{
         'script' : 'Stash.py',
         'icon_resources' : [(1, 'stash_icon.ico')]
        }]
 PACKAGES = ['stash']
-OPTIONS = {'packages':'stash'}
-}
+OPTIONS = {'packages':'stash',
+           'skip_archive':0,
+           'dist_dir':'dist/Stash'}
+DATAFILES = [
+('doc',
+  glob('../documentation/build/html/*.*')),
+('doc/_static',
+  glob('../documentation/build/html/_static/*.*')),
+('doc/_images',
+  glob('../documentation/build/html/_images/*.*')),
+('doc/_sources',
+  glob('../documentation/build/html/_sources/*.*'))
+]
 
 setup(
     name = 'Stash',
     version = version,
     windows=APP,
+    data_files=DATAFILES,
     options={'py2exe': OPTIONS},
-    setup_requires=['py2exe'],
     author = 'Marc Culler',
     author_email = 'culler@users.sourceforge.net',
     description = 'File stash',

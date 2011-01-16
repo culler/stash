@@ -33,7 +33,7 @@ class StashError(Exception):
 
 class SearchKey:
     """
-    A Stash's view of a column in the .info database.
+    A Stash's view of a column in the .stashinfo database.
     """
     sql2keytype = {
         'varchar'  : 'text',
@@ -80,9 +80,8 @@ class Stash:
         """
         Attach an existing stash directory.
         """
-        self.stashdir = os.path.abspath(dirname)
-        rootdir =  os.path.join(dirname, '.files')
-        database = os.path.join(dirname, '.info')
+        rootdir =  os.path.join(dirname, '.stashfiles')
+        database = os.path.join(dirname, '.stashinfo')
         if not os.path.isdir(dirname):
             raise StashError('There is no stash named %s.'%dirname)
         elif not os.path.isdir(rootdir) or not os.path.isfile(database):
@@ -92,6 +91,7 @@ class Stash:
             self.connection = sqlite3.connect(database)
             self.connection.row_factory = sqlite3.Row
             self.init_search_keys()
+            self.stashdir = os.path.abspath(dirname)
 
     def create(self, dirname):
         """
@@ -101,8 +101,8 @@ class Stash:
             raise StashError('The path %s is in use.'%os.path.abspath(dirname))
         else:
             self.stashdir = os.path.abspath(dirname)
-            rootdir = os.path.join(dirname, '.files')
-            database = os.path.join(dirname, '.info')
+            rootdir = os.path.join(dirname, '.stashfiles')
+            database = os.path.join(dirname, '.stashinfo')
             os.mkdir(dirname)
             os.mkdir(rootdir)
             self.connection = sqlite3.connect(database)
@@ -119,6 +119,9 @@ class Stash:
                     unique (name, target)
                     on conflict replace)""")
             self.tree = BeTree(os.path.abspath(rootdir))
+            if sys.platform == 'win32': #Hide .stashfiles and .stashinfo
+                os.system('attrib.exe +H %s'%rootdir)
+                os.system('attrib.exe +H %s'%database)
                      
     def init_search_keys(self):
         """
