@@ -36,7 +36,8 @@ setup(name='Stash',
         'stash' : ['doc/*.*',
                    'doc/_images/*',
                    'doc/_sources/*',
-                   'doc/_static/*']
+                   'doc/_static/*',
+                  ]
         },
       entry_points = {'console_scripts': ['stash = stash.app:main']}
 )
