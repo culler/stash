@@ -37,31 +37,21 @@ class SearchKey:
     """
     sql2keytype = {
         'varchar'  : 'text',
+        'text'     : 'text',
         'date '    : 'date',
         'datetime' : 'datetime'}
 
-    keytype2sql = {
-            'text': 'varchar(128)',
-            'date': 'date',
-        'datetime': 'datetime'}
-
     def __init__(self, row, fromsql=True):
-        self.key = str(row[1])
+        self.key, self.sqltype = str(row[1]), str(row[2])
+        self.key = self.key.replace('"','')
         if fromsql:
-            self.sqltype = row[2]
-            for key in SearchKey.sql2keytype:
-                if (row[2] + ' ').startswith(key):
-                    self.type = SearchKey.sql2keytype[key]
+            for type in SearchKey.sql2keytype:
+                if (self.sqltype + ' ').startswith(type):
+                    self.type = SearchKey.sql2keytype[type]
                     return
             raise StashError('Invalid table.')
         else:
-            self.type = row[2] 
-            try:
-                self.sqltype = SearchKey.keytype2sql[self.type]
-            except KeyError:
-                types = SearchKey.keytype2sql.keys()
-                types.sort()
-                raise StashError('Available key types are: ' +  ', '.join(types))
+            self.type = self.sqltype
 
     def __repr__(self):
         return '%s (%s)'%(self.key, self.type)
@@ -108,14 +98,14 @@ class Stash:
             self.connection = sqlite3.connect(database)
             self.connection.execute("""
                 create table files (
-                    hash varchar(64),
-                    filename varchar(128),
+                    hash text,
+                    filename text,
                     timestamp datetime)""")
             self.connection.execute("""
                 create table preferences (
-                    name varchar(64) not null,
-                    value varchar(128),
-                    target varchar(64) not null,
+                    name text not null,
+                    value text,
+                    target text not null,
                     unique (name, target)
                     on conflict replace)""")
             self.tree = BeTree(os.path.abspath(rootdir))
@@ -127,18 +117,16 @@ class Stash:
         """
         Find the search keys for this stash.
         """
-        self.search_keys = []
         result = self.connection.execute('pragma table_info(files)')
-        next(result)
-        for row in result:
-            self.search_keys.append(SearchKey(row))
+        rows = result.fetchall()
+        self.search_keys = [SearchKey(row) for row in rows[1:]]
 
     def add_search_key(self, key, type):
         """
         Add a new search key.
         """
-        sqltype = SearchKey([0, key, type], fromsql=False).sqltype
-        query = 'alter table files add column %s %s'%(key, sqltype)
+        key = key.replace('"','')
+        query = 'alter table files add column "%s" %s'%(key, type)
         self.connection.execute(query)
         self.connection.commit()
         self.init_search_keys()
@@ -194,7 +182,8 @@ class Stash:
         Update the metadata for a file.
         """
         query = 'update files set '
-        query += ', '.join(["%s='%s'"%(key, value_dict[key].replace("'","''"))
+        query += ', '.join(['"%s"=\'%s\''%(key,
+                                           value_dict[key].replace("'","''"))
                             for key in value_dict.keys()])
         query += " where hash='%s'"%md5_hash
         self.connection.execute(query)

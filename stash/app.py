@@ -418,6 +418,7 @@ class StashViewer():
                            self.stash.search_keys,
                            title='Manage Search Keys')
         for key, type in dialog.result:
+            key = key.replace('"','')
             self.stash.add_search_key(key, type)
             self.columns.append(key)
             self.add_pane(key)
@@ -587,7 +588,7 @@ else: # fall back choice
     scut = Linux_shortcuts
 
 class StashApp:
-    def __init__(self):
+    def __init__(self, args=None):
         self.curdir = os.path.expanduser('~')
         self.viewers=[]
         self.root = root = tk.Tk()
