@@ -85,7 +85,7 @@ class StashViewer():
         else:
             self.columns = []
         self.selected = set()
-        self.root = root = tk.Toplevel(app.root)
+        self.root = root = tk.Toplevel(app.root, class_='stash')
         prefs = self.stash.get_preference('geometry')
         if prefs:
             self.root.geometry(prefs[0]['value'])
@@ -591,7 +591,7 @@ class StashApp:
     def __init__(self, args=None):
         self.curdir = os.path.expanduser('~')
         self.viewers=[]
-        self.root = root = tk.Tk()
+        self.root = root = tk.Tk(className='stash')
         if sys.platform == 'darwin':
             # Hide this midget off the screen.
             root.geometry('0x0+-10+0')
