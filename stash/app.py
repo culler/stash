@@ -588,7 +588,7 @@ else: # fall back choice
     scut = Linux_shortcuts
 
 class StashApp:
-    def __init__(self, args=None):
+    def __init__(self, args=[]):
         self.curdir = os.path.expanduser('~')
         self.viewers=[]
         self.root = root = tk.Tk(className='stash')
@@ -621,6 +621,9 @@ class StashApp:
         Help_menu.add_command(label='Help with Stash...', command=self.help)
         menubar.add_cascade(label='Help', menu=Help_menu)
         root.config(menu=menubar)        
+        for directory in args:
+            if os.path.isdir(directory):
+                self.launch_viewer(directory)
 
     def about(self):
         showinfo(title='About Stash',
@@ -698,7 +701,7 @@ http://sourceforge.net/filestash"""%version)
         self.root.mainloop()
 
 def main():
-    app = StashApp()
+    app = StashApp(args=sys.argv)
     app.run()
     
 if __name__ == '__main__':
