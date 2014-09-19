@@ -313,6 +313,7 @@ class StashViewer():
         if not os.path.isfile(filename):
             showerror('Import File', '%s is not a file.'%filename)
         self.curdir = os.path.dirname(filename)
+        webbrowser.open_new_tab('file://%s'%filename)
         metadata = OrderedDict([(x, '') for x in self.columns])
         dialog = MetadataEditor(self.root, metadata, 'Create Metadata')
         if dialog.result is None:
@@ -456,6 +457,7 @@ class MetadataEditor(Dialog):
     def __init__(self, master, metadata, title=None):
         self.metadata = metadata
         self.entries = OrderedDict()
+        self.master = master
         Dialog.__init__(self, master, title)
 
     def body(self, master):
