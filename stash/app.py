@@ -325,7 +325,7 @@ class StashViewer():
         self.curdir = os.path.dirname(filename)
         webbrowser.open_new_tab('file://%s'%filename)
         metadata = OrderedDict([(x, '') for x in self.columns])
-        dialog = MetadataEditor(self.root, metadata, 'Create Metadata')
+        dialog = MetadataEditor(self.root, metadata, 'Create Metadata', hide_main=True)
         if dialog.result is None:
             self.status.set('Import cancelled')
             self.root.after(1000, self.clear_status)
@@ -464,12 +464,30 @@ class RemoveQuestion(Dialog):
                        'save metadata': self.save_meta.get()} 
 
 class MetadataEditor(Dialog):
-    def __init__(self, master, metadata, title=None):
+    def __init__(self, parent, metadata, title=None, hide_main=False):
         self.metadata = metadata
         self.entries = OrderedDict()
-        self.master = master
-        Dialog.__init__(self, master, title)
-
+        tk.Toplevel.__init__(self, parent)
+        if hide_main:
+            parent.withdraw()
+        else:
+            self.transient(parent)
+        if title:
+            self.title(title)
+        self.parent = parent
+        self.result = None
+        body = tk.Frame(self)
+        self.initial_focus = self.body(body)
+        body.pack(padx=5, pady=5)
+        self.buttonbox()
+        self.grab_set()
+        if not self.initial_focus:
+            self.initial_focus = self
+        self.protocol("WM_DELETE_WINDOW", self.cancel)
+        self.geometry("+0+0")
+        self.initial_focus.focus_set()
+        self.wait_window(self)
+        
     def body(self, master):
         R=0
         master.pack_configure(fill=tk.X, expand=1)
@@ -491,6 +509,11 @@ class MetadataEditor(Dialog):
             if key != 'hash':
                 self.result[key] = self.entries[key].get()
 
+    def cancel(self):
+        self.parent.deiconify()
+        self.parent.focus_set()
+        self.destroy()
+        
 class KeyEditor(Dialog):
 
     def __init__(self, parent, search_keys, title=None, new=False):
