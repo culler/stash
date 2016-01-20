@@ -38,6 +38,7 @@ class SearchKey:
     sql2keytype = {
         'varchar'  : 'text',
         'text'     : 'text',
+        'integer'  :  'int',
         'date '    : 'date',
         'datetime' : 'datetime'}
 

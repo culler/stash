@@ -80,8 +80,9 @@ class StashViewer():
         self.stash_name = os.path.basename(directory)
         self.stash = Stash()
         self.stash.open(directory)
-        if len(self.stash.search_keys) > 2:
-            self.columns = [x.key for x in self.stash.search_keys[2:]]
+        search_keys = self.stash.search_keys
+        if len(search_keys) > 2:
+            self.columns = [x.key for x in search_keys[2:]]
         else:
             self.columns = []
         self.selected = set()
@@ -114,11 +115,16 @@ class StashViewer():
         matchbox.grid(row=0, column=2, sticky=tk.W, ipady=2)
         matchbox.focus_set()
         self.root.bind("<Return>", self.match)
-        self.querybutton = querybutton = tk.Button(topframe,
-                                                   background='gray',
-                                                   highlightbackground='gray',
-                                                   text='Query')
-        querybutton.grid(row=0, column=3, sticky=tk.E)
+        columns = self.columns
+        self.order_var = order_var = tk.StringVar(self.root)
+        if len(columns) > 0:
+            order_var.set(columns[0])
+            self.ordermenu = ordermenu = tk.OptionMenu(topframe,
+                                                       order_var,
+                                                       *columns)
+            label = tk.Label(topframe, text="Sort by: ", background='gray')
+            label.grid(row=0, column=3, sticky=tk.E)
+            ordermenu.grid(row=0, column=4)
         topframe.grid_columnconfigure(3, weight=1)
         self.mainlist = mainlist = tk.PanedWindow(root,
                                                   borderwidth=0,
@@ -285,6 +291,10 @@ class StashViewer():
         booleans = []
         columns = self.stash.search_keys[2:]
         keys = [column.key for column in columns]
+        first = self.order_var.get()
+        if first in keys:
+            keys.remove(first)
+            keys.insert(0, first)
         orderby = ' order by ' + ', '.join(keys)
         if len(terms) == 0:
             return '1' + orderby
