@@ -696,6 +696,7 @@ http://sourceforge.net/filestash"""%version)
             return
 
         self.viewers.append(viewer)
+        self.root.withdraw()
         self.Window_menu.add_command(label=viewer.stash_name,
                                          command=viewer.activate)
             
@@ -706,6 +707,8 @@ http://sourceforge.net/filestash"""%version)
             self.Window_menu.delete(index)
         except IndexError:
             pass
+        if len(self.viewers) == 0:
+            self.root.deiconify()
 
     def new(self):
         newstash = asksaveasfilename(
