@@ -125,6 +125,14 @@ class StashViewer():
             label = tk.Label(topframe, text="Sort by: ", background='gray')
             label.grid(row=0, column=3, sticky=tk.E)
             ordermenu.grid(row=0, column=4)
+            self.desc_var = desc_var = tk.BooleanVar(self.root)
+            desc_var.set(False)
+            self.descend = descend = tk.Checkbutton(topframe,
+                                                    text="Desc",
+                                                    variable=desc_var,
+                                                    background='gray',
+                                                    highlightthickness=0)
+            descend.grid(row=0, column=5)
         topframe.grid_columnconfigure(3, weight=1)
         self.mainlist = mainlist = tk.PanedWindow(root,
                                                   borderwidth=0,
@@ -295,6 +303,8 @@ class StashViewer():
         if first in keys:
             keys.remove(first)
             keys.insert(0, first)
+        if self.desc_var.get():
+            keys[0] += ' desc'
         orderby = ' order by ' + ', '.join(keys)
         if len(terms) == 0:
             return '1' + orderby
