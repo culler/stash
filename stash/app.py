@@ -718,7 +718,7 @@ http://sourceforge.net/filestash"""%version)
         except IndexError:
             pass
         if len(self.viewers) == 0:
-            self.root.deiconify()
+            self.quit()
 
     def new(self):
         newstash = asksaveasfilename(
