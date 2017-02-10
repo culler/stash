@@ -305,7 +305,7 @@ class StashViewer():
             keys.insert(0, first)
         if self.desc_var.get():
             keys[0] += ' desc'
-        orderby = ' order by ' + ', '.join(keys)
+        orderby = ' order by ' + ', '.join(["`%s`"%key for key in keys])
         if len(terms) == 0:
             return '1' + orderby
         for term in terms:
