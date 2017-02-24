@@ -303,9 +303,10 @@ class StashViewer():
         if first in keys:
             keys.remove(first)
             keys.insert(0, first)
+        keys = ["`%s`"%key for key in keys]
         if self.desc_var.get():
-            keys[0] += ' desc'
-        orderby = ' order by ' + ', '.join(["`%s`"%key for key in keys])
+            keys[0] = keys[0] + ' desc'
+        orderby = ' order by ' + ', '.join(keys)
         if len(terms) == 0:
             return '1' + orderby
         for term in terms:
@@ -315,6 +316,7 @@ class StashViewer():
 
     def match(self, event=None):
         where = self.match_clause(self.matchbox.get())
+        print where
         self.search_result = self.stash.find_files(where)
         self.display_results()
 
