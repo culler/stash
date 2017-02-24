@@ -316,7 +316,6 @@ class StashViewer():
 
     def match(self, event=None):
         where = self.match_clause(self.matchbox.get())
-        print where
         self.search_result = self.stash.find_files(where)
         self.display_results()
 
