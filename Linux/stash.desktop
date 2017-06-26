@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=Stash
+GenericName=File Stash
+Comment=Archives files
+Exec=/usr/local/bin/stash %f
+TryExec=stash
+Icon=stash_icon
+Type=Application
+Terminal=false
+Categories=Utility
+StartupWMClass=stash
+MimeType=inode/directory
