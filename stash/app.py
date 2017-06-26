@@ -22,21 +22,25 @@
 #   Author homepage: http://marc-culler.info
 
 
+import os, sys, time, webbrowser
 try:
     from collections import OrderedDict
 except ImportError:
     from .fod import FakeOrderedDict as OrderedDict
 from .stash import Stash, StashError, __file__ as stashfile
 from .version import __version__
-import Tkinter as tk
-from tkFileDialog import askdirectory, askopenfilename, asksaveasfilename
-from tkMessageBox import showerror, showwarning, showinfo
-from tkSimpleDialog import Dialog
-import os
-import sys
-import time
-import webbrowser
-from urllib import pathname2url
+if sys.version_info.major > 2:
+    import tkinter as tk
+    from tkinter.filedialog import askdirectory, askopenfilename, asksaveasfilename
+    from tkinter.messagebox import showerror, showwarning, showinfo
+    from tkinter.simpledialog import Dialog
+    from urllib.request import pathname2url
+else:
+    import Tkinter as tk
+    from tkFileDialog import askdirectory, askopenfilename, asksaveasfilename
+    from tkMessageBox import showerror, showwarning, showinfo
+    from tkSimpleDialog import Dialog
+    from urllib import pathname2url
 
 if sys.path[0].endswith('Resources'):
     stash_doc_path = os.path.join(sys.path[0], 'doc', 'index.html')
