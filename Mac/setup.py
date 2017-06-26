@@ -1,7 +1,7 @@
 #   This file is part of the program Stash.
 #   Stash helps you to stash your files, and find them later.
 #
-#   Copyright (C) 2010 by Marc Culler and others. 
+#   Copyright (C) 2010-2017 by Marc Culler and others. 
 #
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -18,13 +18,13 @@
 #   You should have received a copy of the GNU General Public License
 #   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-#   EMAIL: culler@users.sourceforge.net
-#   URL:  http://sourceforge.net/projects/filestash
+#   Project homepage: https://bitbucket.org/marc_culler/stash
+#   Author homepage: http://marc-culler.info
 
 import sys
 from setuptools import setup
 sys.path.append('stash')
-from version import version
+from version import __version__
 import glob
 
 APP = ['Stash.py']
@@ -37,13 +37,13 @@ OPTIONS = {'argv_emulation': True,
 
 setup(
     name = 'Stash',
-    version = version,
+    version = __version__,
     app=APP,
     packages=PACKAGES,
     options={'py2app': OPTIONS},
     setup_requires=['py2app'],
     author = 'Marc Culler',
-    author_email = 'culler@users.sourceforge.net',
+    url='https://bitbucket.org/marc_culler/stash',
     description = 'File stash',
     license = 'GPL',
     keywords = 'file, metadata, stash',

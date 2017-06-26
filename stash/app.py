@@ -18,8 +18,8 @@
 #   You should have received a copy of the GNU General Public License
 #   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-#   EMAIL: culler@users.sourceforge.net
-#   URL:  http://sourceforge.net/projects/filestash
+#   Project homepage: https://bitbucket.org/marc_culler/stash
+#   Author homepage: http://marc-culler.info
 
 
 try:
@@ -27,7 +27,7 @@ try:
 except ImportError:
     from .fod import FakeOrderedDict as OrderedDict
 from .stash import Stash, StashError, __file__ as stashfile
-from .version import version
+from .version import __version__
 import Tkinter as tk
 from tkFileDialog import askdirectory, askopenfilename, asksaveasfilename
 from tkMessageBox import showerror, showwarning, showinfo
@@ -674,15 +674,15 @@ class StashApp:
     def about(self):
         showinfo(title='About Stash',
                  message=u"""
-This is version %s of Stash, copyright \u00a9 2010 by Marc Culler.
+This is version %s of Stash, copyright \u00a9 2010-2017 by Marc Culler.
 
 Stash is distributed under the GNU Public License, version 3 or higher.
  
 Stash is written in python, using the SQLite file-based database and \
 the Tk toolkit.
 
-To download Stash visit the sourceforge page:
-http://sourceforge.net/filestash"""%version)
+To download Stash visit the bitbucket page:
+https://bitbucket.org/marc_culler/stash"""%__version__)
 
     def quit(self):
         for stash in [x for x in self.viewers]:

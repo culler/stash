@@ -18,18 +18,18 @@
 #   You should have received a copy of the GNU General Public License
 #   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-#   EMAIL: culler@users.sourceforge.net
-#   URL:  http://sourceforge.net/projects/filestash
+#   Project homepage: https://bitbucket.org/marc_culler/stash
+#   Author homepage: http://marc-culler.info
 
 from setuptools import setup
 from pkg_resources import load_entry_point
+from stash.version import __version__
 
 setup(name='Stash',
-      version='1.0',
+      version=__version__,
       description='File Stash',
       author='Marc Culler',
-      author_email='culler@users.sourceforge.net',
-      url='http://sourceforge.net/projects/filestash',
+      url='https://bitbucket.org/marc_culler/stash',
       packages=['stash'],
       zip_safe=False,
       package_data = {

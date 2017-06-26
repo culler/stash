@@ -171,18 +171,10 @@ and a stash that requires three levels will be quite large.
 Installing Stash
 -------------------
 
-Stash is distributed from the SourceForge site
-http://sourceforge.net/projects/filestash .
+Stash is distributed from the Bitbucket site
+https://bitbucket.org/marc_culler/stash
 Standalone apps for Macintosh and (soon) Windows can be downloaded
 from there.
-
-Alternatively, if you have python 2.6 or 2.7 on your system, along with
-easy_install, then you can also install Stash with the command
-
-``python -m easy_install -Uf http://filestash.sourceforge.net/eggs Stash``
-
-This will install a command ``stash`` which can be used to start the GUI
-from a command prompt.
 
 The stash python module
 ---------------------------

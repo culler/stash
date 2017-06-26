@@ -18,12 +18,12 @@
 #   You should have received a copy of the GNU General Public License
 #   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-#   EMAIL: culler@users.sourceforge.net
-#   URL:  http://sourceforge.net/projects/filestash
+#   Project homepage: https://bitbucket.org/marc_culler/stash
+#   Author homepage: http://marc-culler.info
 
 from distutils.core import setup
 import py2exe
-from stash.version import version
+from stash.version import __version__
 from glob import glob
 
 APP = [{
@@ -47,12 +47,12 @@ DATAFILES = [
 
 setup(
     name = 'Stash',
-    version = version,
+    version = __version__,
     windows=APP,
     data_files=DATAFILES,
     options={'py2exe': OPTIONS},
     author = 'Marc Culler',
-    author_email = 'culler@users.sourceforge.net',
+    url = 'https://bitbucket.org/marc_culler/stash',
     description = 'File stash',
     license = 'GPL',
     keywords = 'file, metadata, stash',

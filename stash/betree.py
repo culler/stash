@@ -18,8 +18,8 @@
 #   You should have received a copy of the GNU General Public License
 #   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-#   EMAIL: culler@users.sourceforge.net
-#   URL:  http://sourceforge.net/projects/filestash
+#   Project homepage: https://bitbucket.org/marc_culler/stash
+#   Author homepage: http://marc-culler.info
 
 import hashlib, os, shutil
 
