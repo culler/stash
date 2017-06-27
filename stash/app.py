@@ -24,6 +24,13 @@
 
 import os, sys, time, webbrowser
 try:
+    if sys.platform == 'darwin':
+        browser = webbrowser.get('safari')
+    else:
+        browser = webbrowser.get()
+except:
+    browser = webbrowser.get()
+try:
     from collections import OrderedDict
 except ImportError:
     from .fod import FakeOrderedDict as OrderedDict
@@ -43,13 +50,14 @@ else:
     from urllib import pathname2url
 
 if sys.path[0].endswith('Resources'):
-    stash_doc_path = os.path.join(sys.path[0], 'doc', 'index.html')
+    stash_doc_path = os.path.join(sys.path[0], os.path.pardir, 'doc', 'index.html')
 elif sys.path[0].endswith('.zip'):
-    bundle = os.path.abspath(os.path.join(sys.path[0], os.path.pardir))
+    bundle = os.path.abspath(os.path.join(sys.path[0],
+                                          os.path.pardir, os.path.pardir))
     stash_doc_path = os.path.join(bundle, 'doc', 'index.html')
 else:
   stash_doc_path = os.path.join(os.path.dirname(stashfile), 'doc', 'index.html')
-
+  
 class Scrollbar(tk.Scrollbar):
     """
     Scrollbar that removes itself when not needed.
@@ -183,8 +191,12 @@ class StashViewer():
         menubar.add_cascade(label='Action', menu=self.Action_menu)
         menubar.add_cascade(label='Window', menu=self.app.Window_menu)
         Help_menu = tk.Menu(menubar, name="help")
-        Help_menu.add_command(label='Help with Stash...', command=self.app.help)
-        menubar.add_cascade(label='Help', menu=Help_menu)
+        if sys.platform == 'darwin':
+            window.createcommand('::tk::mac::ShowHelp', self.app.help)
+        else:
+            Help_menu.add_command(label='Stash Help',
+                                  command=self.app.help)
+            menubar.add_cascade(label='Help', menu=Help_menu)
         root.config(menu=menubar)
         self.set_sashes()
 
@@ -338,7 +350,7 @@ class StashViewer():
         if not os.path.isfile(filename):
             showerror('Import File', '%s is not a file.'%filename)
         self.curdir = os.path.dirname(filename)
-        webbrowser.open_new_tab('file://%s'%filename)
+        browser.open_new_tab('file://%s'%filename)
         metadata = OrderedDict([(x, '') for x in self.columns])
         dialog = MetadataEditor(self.root, metadata, 'Create Metadata', hide_main=True)
         if dialog.result is None:
@@ -668,7 +680,12 @@ class StashApp:
         self.Window_menu = Window_menu = tk.Menu(menubar, name='viewers')
         menubar.add_cascade(label='Window', menu=Window_menu)
         Help_menu = tk.Menu(menubar, name="help")
-        Help_menu.add_command(label='Help with Stash...', command=self.help)
+        if sys.platform == 'darwin':
+            root.createcommand('::tk::mac::ShowHelp', self.help)
+        else:
+            Help_menu.add_command(label='Stash Help',
+                                  command=self.app.help)
+            menubar.add_cascade(label='Help', menu=Help_menu)
         menubar.add_cascade(label='Help', menu=Help_menu)
         root.config(menu=menubar)        
         for directory in args:
@@ -748,7 +765,7 @@ https://bitbucket.org/marc_culler/stash"""%__version__)
         self.launch_viewer(newstash)
 
     def help(self):
-        webbrowser.open('file:' + stash_doc_path)
+        browser.open('file:' + stash_doc_path)
 
     def run(self):
         self.root.mainloop()
