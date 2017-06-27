@@ -2,5 +2,6 @@ syntax: glob
 *.pyc
 build
 dist
+disk_images
 *.egg-info
 *.DS_Store
