@@ -684,9 +684,8 @@ class StashApp:
             root.createcommand('::tk::mac::ShowHelp', self.help)
         else:
             Help_menu.add_command(label='Stash Help',
-                                  command=self.app.help)
+                                  command=self.help)
             menubar.add_cascade(label='Help', menu=Help_menu)
-        menubar.add_cascade(label='Help', menu=Help_menu)
         root.config(menu=menubar)        
         for directory in args:
             if os.path.isdir(directory):
