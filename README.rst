@@ -1,5 +1,10 @@
+.. |copy| unicode:: 0xA9 .. copyright sign
+
 Stash
-=====
+========
+
+Copyright |copy| 2017, Marc Culler
+
 
 Description
 -----------
