@@ -49,15 +49,21 @@ else:
     from tkSimpleDialog import Dialog
     from urllib import pathname2url
 
-if sys.path[0].endswith('Resources'):
-    stash_doc_path = os.path.join(sys.path[0], os.path.pardir, 'doc', 'index.html')
-elif sys.path[0].endswith('.zip'):
-    bundle = os.path.abspath(os.path.join(sys.path[0],
-                                          os.path.pardir, os.path.pardir))
-    stash_doc_path = os.path.join(bundle, 'doc', 'index.html')
+if sys.platform == 'darwin':
+    if sys.path[0].endswith('Resources'):
+        stash_doc_path = os.path.join(sys.path[0], os.path.pardir,
+                                      'doc', 'index.html')
+    elif sys.path[0].endswith('.zip'):
+        base = os.path.abspath(os.path.join(sys.path[0]))
+        bundle = os.path.abspath(os.path.join(base, os.path.pardir,
+                                              os.path.pardir))
+        stash_doc_path = os.path.join(bundle, 'doc', 'index.html')
+    else:
+        stash_doc_path = os.path.join(os.path.dirname(stashfile),
+                                      'doc', 'index.html')
 else:
   stash_doc_path = os.path.join(os.path.dirname(stashfile), 'doc', 'index.html')
-  
+
 class Scrollbar(tk.Scrollbar):
     """
     Scrollbar that removes itself when not needed.

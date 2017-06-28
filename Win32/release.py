@@ -21,39 +21,41 @@
 #   Project homepage: https://bitbucket.org/marc_culler/stash
 #   Author homepage: http://marc-culler.info
 
-from distutils.core import setup
-import py2exe
-from stash.version import __version__
-from glob import glob
+import os, sys, shutil
+from subprocess import Popen, call, PIPE
 
-APP = [{
-        'script' : 'Stash.py',
-        'icon_resources' : [(1, 'stash_icon.ico')]
-       }]
-PACKAGES = ['stash']
-OPTIONS = {'packages':'stash',
-           'skip_archive':0,
-           'dist_dir':'dist/Stash'}
-DATAFILES = [
-('doc',
-  glob('../documentation/build/html/*.*')),
-('doc/_static',
-  glob('../documentation/build/html/_static/*.*')),
-('doc/_images',
-  glob('../documentation/build/html/_images/*.*')),
-('doc/_sources',
-  glob('../documentation/build/html/_sources/*.*'))
-]
+def freshen_app(python):
+    """
+    Pull and build the module
+    """
+    os.chdir("../")
+    call(["hg", "pull"])
+    call(["hg", "up"])
+    call([python, "setup.py", "install"])
+    os.chdir("documentation")
+    call(["make", "html"])
+    os.chdir("..")
+    if os.path.exists(r"stash\doc"):
+        shutil.rmtree(r"stash\doc")
+    os.rename(r"documentation\build\html", r"stash\doc")
+    call([python, "setup.py", "install"])
+    os.chdir("Win32")
 
-setup(
-    name = 'Stash',
-    version = __version__,
-    windows=APP,
-    data_files=DATAFILES,
-    options={'py2exe': OPTIONS},
-    author = 'Marc Culler',
-    url = 'https://bitbucket.org/marc_culler/stash',
-    description = 'File stash',
-    license = 'GPL',
-    keywords = 'file, metadata, stash',
-)
+def build_app(pyinstaller, app_name):
+    """
+    Build the standalone app bundle.
+    """
+    call([pyinstaller, app_name + ".spec"])
+
+def package_app(app_name):
+    pass
+         
+def do_release(python, pyinstaller, app_name):
+    freshen_app(python)
+    build_app(pyinstaller, app_name)
+    package_app(app_name)
+
+do_release(r"C:\Python36-x64\python",
+           r"C:\Python36-x64\Scripts\pyinstaller",
+           "Stash")
+
