@@ -3,5 +3,6 @@ syntax: glob
 build
 dist
 disk_images
+doc
 *.egg-info
 *.DS_Store

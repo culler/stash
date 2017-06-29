@@ -62,7 +62,7 @@ if sys.platform == 'darwin':
         stash_doc_path = os.path.join(os.path.dirname(stashfile),
                                       'doc', 'index.html')
 else:
-  stash_doc_path = os.path.join(os.path.dirname(stashfile), 'doc', 'index.html')
+  stash_doc_path = os.path.abspath(os.path.join(os.path.dirname(stashfile), 'doc', 'index.html'))
 
 class Scrollbar(tk.Scrollbar):
     """

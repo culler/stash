@@ -24,6 +24,15 @@
 from setuptools import setup
 from pkg_resources import load_entry_point
 from stash.version import __version__
+import os
+
+if not os.path.exists(os.path.join('stash', 'doc', 'index.html')):
+    print("""
+To build the documentation:
+cd documentation
+make PYTHONEXE=python3 html
+mv build/html ../stash/doc
+""")
 
 setup(name='Stash',
       version=__version__,
