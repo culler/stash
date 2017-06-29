@@ -2,8 +2,9 @@
 #
 
 # You can set these variables from the command line.
+PYTHONEXE     = python
 SPHINXOPTS    =
-SPHINXBUILD   = /c/python36-x64/python -msphinx
+SPHINXBUILD   = ${PYTHONEXE} -msphinx
 SPHINXPROJ    = Stash
 SOURCEDIR     = source
 BUILDDIR      = build

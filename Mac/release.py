@@ -21,7 +21,7 @@
 #   Project homepage: https://bitbucket.org/marc_culler/stash
 #   Author homepage: http://marc-culler.info
 
-import os, sys, re
+import os, sys, re, shutil
 from subprocess import Popen, call, PIPE
 from math import ceil
 
@@ -40,6 +40,13 @@ def freshen_app(python):
     os.chdir("../")
     call(["hg", "pull"])
     call(["hg", "up"])
+    call([python, "setup.py", "install"])
+    os.chdir("documentation")
+    call(["make", "PYTHONEXE=python3", "html"])
+    os.chdir("..")
+    if os.path.exists("stash/doc"):
+        shutil.rmtree("stash/doc")
+    os.rename("documentation/build/html", "stash/doc")
     call([python, "setup.py", "install"])
     os.chdir("Mac")
 

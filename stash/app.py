@@ -198,11 +198,11 @@ class StashViewer():
         menubar.add_cascade(label='Window', menu=self.app.Window_menu)
         Help_menu = tk.Menu(menubar, name="help")
         if sys.platform == 'darwin':
-            window.createcommand('::tk::mac::ShowHelp', self.app.help)
+            self.app.root.createcommand('::tk::mac::ShowHelp', self.app.help)
         else:
             Help_menu.add_command(label='Stash Help',
                                   command=self.app.help)
-            menubar.add_cascade(label='Help', menu=Help_menu)
+        menubar.add_cascade(label='Help', menu=Help_menu)
         root.config(menu=menubar)
         self.set_sashes()
 
@@ -661,7 +661,7 @@ class StashApp:
         self.viewers=[]
         self.root = root = tk.Tk(className='stash')
         if sys.platform == 'darwin':
-            # Hide this midget off the screen.
+            # Hide the root off the screen.
             root.geometry('0x0+-10+0')
         else:
             root.title('Stash')
@@ -670,12 +670,12 @@ class StashApp:
             root.tk.call('namespace', 'import', '::tk::dialog::file::')
             root.tk.call('set', '::tk::dialog::file::showHiddenBtn',  '1')
             root.tk.call('set', '::tk::dialog::file::showHiddenVar',  '0')
-        root.protocol("WM_DELETE_WINDOW", self.quit)
         self.menubar = menubar = tk.Menu(self.root)
         Python_menu = tk.Menu(menubar, name="apple")
         Python_menu.add_command(label='About Stash ...', command=self.about)
         Python_menu.add_separator()
         if sys.platform != 'darwin':
+            root.protocol("WM_DELETE_WINDOW", self.quit)
             Python_menu.add_command(label='Quit Stash'+scut['Quit'], command=self.quit)
         menubar.add_cascade(label='Stash', menu=Python_menu)
         self.File_menu = File_menu = tk.Menu(menubar, name="file")
@@ -691,7 +691,7 @@ class StashApp:
         else:
             Help_menu.add_command(label='Stash Help',
                                   command=self.help)
-            menubar.add_cascade(label='Help', menu=Help_menu)
+        menubar.add_cascade(label='Help', menu=Help_menu)
         root.config(menu=menubar)        
         for directory in args:
             if os.path.isdir(directory):
@@ -711,8 +711,8 @@ To download Stash visit the bitbucket page:
 https://bitbucket.org/marc_culler/stash"""%__version__)
 
     def quit(self):
-        for stash in [x for x in self.viewers]:
-            stash.close()
+        for viewer in [x for x in self.viewers]:
+            viewer.close()
         self.root.destroy()
 
     def open(self):
@@ -745,7 +745,14 @@ https://bitbucket.org/marc_culler/stash"""%__version__)
         except IndexError:
             pass
         if len(self.viewers) == 0:
-            self.quit()
+            if sys.platform != 'darwin':
+                self.quit()
+            else:
+                # This voodoo brings the application menu bar back
+                # when the last window closes. Without doing both of
+                # these you get a blank menu bar.
+                self.root.deiconify()
+                self.root.focus_force()
 
     def new(self):
         newstash = asksaveasfilename(
