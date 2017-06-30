@@ -20,9 +20,9 @@ accessing their files.
 Installation
 ------------
 
-Until the standalone applications for macOS and Windows become available,
-Stash should be installed as a standard python package.  That is,
-download the archive and run:
+Standalone applications for macOS and Windows are available in the
+Downloads section.  Otherwise Stash should be installed as a standard
+python package.  That is, download the archive and run:
 
 ::
 
