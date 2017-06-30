@@ -5,6 +5,7 @@ Stash
 
 Copyright |copy| 2017, Marc Culler
 
+|
 
 Description
 -----------
@@ -13,6 +14,8 @@ Stash implements an efficient virtual filesystem which also stores
 metadata for each imported file. Files are retrieved from a stash by
 searching the metadata. A GUI is included for managing stashes and
 accessing their files.
+
+|
 
 Installation
 ------------
@@ -34,6 +37,8 @@ Or, if you are using linux:
 To create a clickable app on linux, copy the file Linux/stash.desktop into
 ~/.local/share/applications and copy Linux/stash_icons.svg into
 ~/.local/share/icons/hicolor/scalable/apps .
+
+|
 
 Documentation
 -------------
