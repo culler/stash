@@ -534,8 +534,10 @@ class MetadataEditor(Dialog):
                entry.config(state='readonly') 
             entry.grid(row=R, column=1, sticky=tk.EW)
             R += 1
-        self.entries[keys[0]].focus_set()
-
+        for key in keys:
+            self.entries[key].focus_set()
+            break
+        
     def apply(self):
         self.result = OrderedDict()
         for key in self.entries:
