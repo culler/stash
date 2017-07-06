@@ -23,6 +23,13 @@
 
 from .betree import BeTree
 import os, sys, sqlite3, webbrowser, shutil
+try:
+    if sys.platform == 'darwin':
+        browser = webbrowser.get('safari')
+    else:
+        browser = webbrowser.get()
+except:
+    browser = webbrowser.get()
 
 class StashError(Exception):
     def __init__(self, value):
@@ -176,7 +183,7 @@ class Stash:
         """
         Open a viewer for a file.
         """
-        webbrowser.open_new_tab('file://%s'%self.tree.find(md5_hash))
+        browser.open_new_tab('file://%s'%self.tree.find(md5_hash))
 
     def set_search_keys(self, value_dict, md5_hash):
         """

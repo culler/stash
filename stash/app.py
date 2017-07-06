@@ -22,32 +22,28 @@
 #   Author homepage: http://marc-culler.info
 
 
-import os, sys, time, webbrowser
-try:
-    if sys.platform == 'darwin':
-        browser = webbrowser.get('safari')
-    else:
-        browser = webbrowser.get()
-except:
-    browser = webbrowser.get()
+import os, sys, time
 try:
     from collections import OrderedDict
 except ImportError:
     from .fod import FakeOrderedDict as OrderedDict
-from .stash import Stash, StashError, __file__ as stashfile
+from .stash import Stash, StashError, browser, __file__ as stashfile
 from .version import __version__
 if sys.version_info.major > 2:
     import tkinter as tk
+    from tkinter import ttk
     from tkinter.filedialog import askdirectory, askopenfilename, asksaveasfilename
     from tkinter.messagebox import showerror, showwarning, showinfo
     from tkinter.simpledialog import Dialog
     from urllib.request import pathname2url
 else:
     import Tkinter as tk
+    import ttk
     from tkFileDialog import askdirectory, askopenfilename, asksaveasfilename
     from tkMessageBox import showerror, showwarning, showinfo
     from tkSimpleDialog import Dialog
     from urllib import pathname2url
+from .theme import StashStyle
 
 if sys.platform == 'darwin':
     if sys.path[0].endswith('Resources'):
@@ -105,6 +101,8 @@ class StashViewer():
             self.columns = []
         self.selected = set()
         self.root = root = tk.Toplevel(app.root, class_='stash')
+        self.style = StashStyle(root)
+        windowbg=self.style.WindowBG
         prefs = self.stash.get_preference('geometry')
         if prefs:
             self.root.geometry(prefs[0]['value'])
@@ -117,18 +115,16 @@ class StashViewer():
         topframe = tk.Frame(root,
                              relief=tk.FLAT,
                              borderwidth=10,
-                             background='gray')
+                             background=windowbg)
         topframe.grid(row=0, columnspan=2, sticky=tk.EW)
-        gobutton = tk.Button(topframe,
-                             background='gray',
-                             highlightbackground='gray',
+        gobutton = ttk.Button(topframe,
                              text='Find',
                              command=self.match)
         gobutton.grid(row=0, column=0, sticky=tk.W+tk.S, padx=2)
-        searchlabel = tk.Label(topframe, text='files matching: ', bg='gray')
+        searchlabel = tk.Label(topframe, text='files matching: ', bg=windowbg)
         searchlabel.grid(row=0, column=1, sticky=tk.E)
         self.matchbox = matchbox = tk.Entry(topframe,
-                                            highlightbackground='gray',
+                                            highlightbackground=windowbg,
                                             width=30)
         matchbox.grid(row=0, column=2, sticky=tk.W, ipady=2)
         matchbox.focus_set()
@@ -137,10 +133,10 @@ class StashViewer():
         self.order_var = order_var = tk.StringVar(self.root)
         if len(columns) > 0:
             order_var.set(columns[0])
-            self.ordermenu = ordermenu = tk.OptionMenu(topframe,
+            self.ordermenu = ordermenu = ttk.OptionMenu(topframe,
                                                        order_var,
                                                        *columns)
-            label = tk.Label(topframe, text="Sort by: ", background='gray')
+            label = tk.Label(topframe, text="Sort by: ", background=windowbg)
             label.grid(row=0, column=3, sticky=tk.E)
             ordermenu.grid(row=0, column=4)
             self.desc_var = desc_var = tk.BooleanVar(self.root)
@@ -148,7 +144,7 @@ class StashViewer():
             self.descend = descend = tk.Checkbutton(topframe,
                                                     text="Desc",
                                                     variable=desc_var,
-                                                    background='gray',
+                                                    background=windowbg,
                                                     highlightthickness=0)
             descend.grid(row=0, column=5)
         topframe.grid_columnconfigure(3, weight=1)
@@ -169,7 +165,7 @@ class StashViewer():
         scrollbar.config(command=self.yview)
         mainlist.grid(row=1, column=0, sticky=tk.NSEW)
         scrollbar.grid(row=1, column=1, sticky=tk.NS)
-        spacer = tk.Frame(root, background='gray', height=2, borderwidth=0,
+        spacer = tk.Frame(root, background=windowbg, height=2, borderwidth=0,
                  relief=tk.FLAT)
         spacer.grid(row=2, columnspan=2, sticky=tk.EW)
         self.status = status = tk.StringVar(self.root)
@@ -213,7 +209,7 @@ class StashViewer():
                               borderwidth=0,
                               background='white')
         label = tk.Label(pane, text=column,
-                         background='gray',
+                         background=self.style.WindowBG,
                          relief=tk.RAISED,
                          borderwidth=1)
         listbox = Listbox(pane, height=10, borderwidth=0,
@@ -779,7 +775,7 @@ https://bitbucket.org/marc_culler/stash"""%__version__)
         self.launch_viewer(newstash)
 
     def help(self):
-        browser.open('file:' + stash_doc_path)
+        browser.open_new_tab('file:' + stash_doc_path)
 
     def run(self):
         self.root.mainloop()
