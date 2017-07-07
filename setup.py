@@ -19,7 +19,7 @@
 #   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 #   Project homepage: https://bitbucket.org/marc_culler/stash
-#   Author homepage: http://marc-culler.info
+#   Author homepage: https://marc-culler.info
 
 from setuptools import setup
 from pkg_resources import load_entry_point
