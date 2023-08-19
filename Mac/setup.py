@@ -18,21 +18,21 @@
 #   You should have received a copy of the GNU General Public License
 #   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-#   Project homepage: https://bitbucket.org/marc_culler/stash
+#   Project homepage: https://github.org/culler/stash
 #   Author homepage: http://marc-culler.info
 
 import sys
 from setuptools import setup
 sys.path.append('stash')
-from version import __version__
+from stash import __version__
 import glob
 
 APP = ['Stash.py']
 PACKAGES = ['stash']
-OPTIONS = {'argv_emulation': True,
-           'iconfile': 'stash_icon.icns',
-           'dylib_excludes': 'Tcl.framework',
-           'resources': 'doc'
+OPTIONS = {
+    'iconfile': 'stash_icon.icns',
+    'resources': 'doc',
+    'plist': 'Info.plist',
 }
 
 setup(
@@ -43,7 +43,7 @@ setup(
     options={'py2app': OPTIONS},
     setup_requires=['py2app'],
     author = 'Marc Culler',
-    url='https://bitbucket.org/marc_culler/stash',
+    url='https://github.org/culler/stash',
     description = 'File stash',
     license = 'GPL',
     keywords = 'file, metadata, stash',

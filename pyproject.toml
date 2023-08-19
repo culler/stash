@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stash"
+dynamic = ["version"]
+description = "Manage a collection of files with configuraable metadata."
+readme = {file = "README.rst", content-type = "text/x-rst"}
+authors = [
+    { name="Marc Culler", email="culler@users.noreply.github.com" },
+]
+maintainers = [
+    { name="Marc Culler", email="culler@users.noreply.github.com" },
+]
+requires-python = ">=3.8"
+keywords = ["files", "metadata"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Topic :: Desktop Environment :: File Managers",
+]
+
+[project.scripts]
+stash = "stash.app:main"
+
+[project.urls]
+"Homepage" = "https://github.com/culler/stash"
+"Bug Tracker" = "https://github.com/culler/stash/issues"
+
+[tool.setuptools.dynamic]
+version = {attr = "stash.__version__"}

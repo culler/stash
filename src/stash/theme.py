@@ -2,7 +2,7 @@
 #   This file is part of the program Stash.
 #   Stash helps you to stash your files, and find them later.
 #
-#   Copyright (C) 2010 by Marc Culler and others. 
+#   Copyright (C) 2010-2023 by Marc Culler and others. 
 #
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -19,19 +19,14 @@
 #   You should have received a copy of the GNU General Public License
 #   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-#   Project homepage: https://bitbucket.org/marc_culler/stash
+#   Project homepage: https://github/culler/stash
 #   Author homepage: https://marc-culler.info
 
 from __future__ import unicode_literals
 import sys
-if sys.version_info[0] < 3: 
-    import Tkinter as tk
-    import ttk
-    from tkFont import Font
-else:
-    import tkinter as tk
-    from tkinter import ttk as ttk
-    from tkinter.font import Font
+import tkinter as tk
+from tkinter import ttk as ttk
+from tkinter.font import Font
 
 class _StashStyle:
     def __init__(self):

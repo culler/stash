@@ -1,7 +1,7 @@
 #   This file is part of the program Stash.
 #   Stash helps you to stash your files, and find them later.
 #
-#   Copyright (C) 2010 by Marc Culler and others. 
+#   Copyright (C) 2010-2023 by Marc Culler and others. 
 #
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -21,28 +21,18 @@
 #   Project homepage: https://bitbucket.org/marc_culler/stash
 #   Author homepage: https://marc-culler.info
 
-
 import os, sys, time
-try:
-    from collections import OrderedDict
-except ImportError:
-    from .fod import FakeOrderedDict as OrderedDict
-from .stash import Stash, StashError, browser, __file__ as stashfile
-from .version import __version__
-if sys.version_info.major > 2:
-    import tkinter as tk
-    from tkinter import ttk
-    from tkinter.filedialog import askdirectory, askopenfilename, asksaveasfilename
-    from tkinter.messagebox import showerror, showwarning, showinfo
-    from tkinter.simpledialog import Dialog
-    from urllib.request import pathname2url
-else:
-    import Tkinter as tk
-    import ttk
-    from tkFileDialog import askdirectory, askopenfilename, asksaveasfilename
-    from tkMessageBox import showerror, showwarning, showinfo
-    from tkSimpleDialog import Dialog
-    from urllib import pathname2url
+from collections import OrderedDict
+import webbrowser
+from .stash import Stash, StashError, __file__ as stashfile
+from . import __version__
+import tkinter as tk
+from tkinter import ttk
+from tkinter.filedialog import askdirectory, askopenfilename, asksaveasfilename
+from tkinter.messagebox import showerror, showwarning, showinfo
+from tkinter.simpledialog import Dialog
+from urllib.request import pathname2url
+import threading
 from .theme import StashStyle
 
 if sys.platform == 'darwin':
@@ -67,7 +57,7 @@ class Scrollbar(tk.Scrollbar):
     # http://effbot.org/zone/tkinter-autoscrollbar.htm
     def set(self, lo, hi):
         if float(lo) <= 0.0 and float(hi) >= 1.0:
-            # grid_remove is currently missing from Tkinter!
+            # grid_remove is currently missing from tkinter!
             self.tk.call("grid", "remove", self)
         else:
             self.grid()
@@ -94,9 +84,9 @@ class StashViewer():
         self.stash_name = os.path.basename(directory)
         self.stash = Stash()
         self.stash.open(directory)
-        search_keys = self.stash.search_keys
-        if len(search_keys) > 2:
-            self.columns = [x.key for x in search_keys[2:]]
+        fields = self.stash.fields
+        if len(fields) > 2:
+            self.columns = [x.name for x in fields[2:]]
         else:
             self.columns = []
         self.selected = set()
@@ -128,9 +118,8 @@ class StashViewer():
                                             width=30)
         matchbox.grid(row=0, column=2, sticky=tk.W, ipady=2)
         matchbox.focus_set()
-        self.root.bind("<Return>", self.match)
         columns = self.columns
-        self.order_var = order_var = tk.StringVar(self.root)
+        self.order_var = order_var = tk.StringVar(root)
         if len(columns) > 0:
             order_var.set(columns[0])
             self.ordermenu = ordermenu = ttk.OptionMenu(topframe,
@@ -139,7 +128,7 @@ class StashViewer():
             label = tk.Label(topframe, text="Sort by: ", background=windowbg)
             label.grid(row=0, column=3, sticky=tk.E)
             ordermenu.grid(row=0, column=4)
-            self.desc_var = desc_var = tk.BooleanVar(self.root)
+            self.desc_var = desc_var = tk.BooleanVar(root)
             desc_var.set(False)
             self.descend = descend = tk.Checkbutton(topframe,
                                                     text="Desc",
@@ -176,32 +165,38 @@ class StashViewer():
                              relief=tk.FLAT)
         statusbox.grid(row=3, column=0, sticky=tk.EW, padx=20)
         self.menubar = menubar = tk.Menu(root)
-        Python_menu = tk.Menu(menubar, name="apple")
-        Python_menu.add_command(label='About Stash ...',
-                                    command=self.app.about)
-        Python_menu.add_separator()
-        if sys.platform != 'darwin':
-            Python_menu.add_command(label='Quit Stash', command=self.app.quit)
-        menubar.add_cascade(label='Stash', menu=Python_menu)
-        self.Action_menu = Action_menu = tk.Menu(self.app.menubar, name='action')
+        menubar = tk.Menu(self.root)
+        Application_menu = tk.Menu(menubar, name="apple")
+        menubar.add_cascade(label='Stash', menu=Application_menu)
+        File_menu = tk.Menu(menubar, name="file")
+        menubar.add_cascade(label='File', menu=File_menu)
+        Action_menu = tk.Menu(menubar, name='action')
+        menubar.add_cascade(label='Action', menu=Action_menu)
+        Window_menu = tk.Menu(menubar, name='window')
+        menubar.add_cascade(label='Window', menu=Window_menu)
+        Application_menu.insert_command(0, label='About Stash ...',
+            command=self.app.about)
+        Application_menu.insert_separator(0)
+        File_menu.add_command(label='Open...'+scut['Open'],
+                              command=self.app.open)
+        File_menu.add_command(label='New...'+scut['New'], command=self.app.new)
+        
         Action_menu.add_command(label='Import...', command=self.import_file)
         Action_menu.add_command(label='Export...', command=self.export_files)
         Action_menu.add_command(label='Remove...', command=self.remove_files)
         Action_menu.add_command(label='Metadata...', command=self.metadata)
         Action_menu.add_command(label='Configure...', command=self.configure)
-        menubar.add_cascade(label='File', menu=self.app.File_menu)
-        menubar.add_cascade(label='Action', menu=self.Action_menu)
-        menubar.add_cascade(label='Window', menu=self.app.Window_menu)
         Help_menu = tk.Menu(menubar, name="help")
-        if sys.platform == 'darwin':
-            self.app.root.createcommand('::tk::mac::ShowHelp', self.app.help)
-        else:
-            Help_menu.add_command(label='Stash Help',
-                                  command=self.app.help)
         menubar.add_cascade(label='Help', menu=Help_menu)
+        if sys.platform != 'darwin':
+            Application_menu.add_command(label='Quit Stash'+scut['Quit'],
+                command=self.app.quit)
+            Help_menu.add_command(label='Stash Help', command=self.app.help)
         root.config(menu=menubar)
         self.set_sashes()
-
+        root.bind("<Return>", self.match)
+        root.update_idletasks()
+        
     def add_pane(self, column):
         # needs a minimum size if the lists are empty
         pane = tk.PanedWindow(self.mainlist,
@@ -276,7 +271,10 @@ class StashViewer():
     def clear(self):
         for listbox in self.listboxes.values():
             for index in self.selected:
-                listbox.itemconfig(index, bg=self.bgcolor[index%2])
+                try:
+                    listbox.itemconfig(index, bg=self.bgcolor[index%2])
+                except TclError:
+                    pass
         self.selected = set()
         
     def uniselect(self, event):
@@ -307,7 +305,7 @@ class StashViewer():
         for row in self.search_result:
             for column in self.columns:
                 box = self.listboxes[column]
-                box.insert(tk.END, row[column])
+                box.insert(tk.END, row[column] or '')
                 box.itemconfig(count, background=self.bgcolor[count%2])
             count += 1
         self.status.set('%d file%s found.'%(count, '' if count==1 else 's'))
@@ -315,8 +313,8 @@ class StashViewer():
     def match_clause(self, match):
         terms = match.split()
         booleans = []
-        columns = self.stash.search_keys[2:]
-        keys = [column.key for column in columns]
+        columns = self.stash.fields[2:]
+        keys = [column.name for column in columns]
         first = self.order_var.get()
         if first in keys:
             keys.remove(first)
@@ -329,7 +327,7 @@ class StashViewer():
             return '1' + orderby
         for term in terms:
             for column in columns:
-                booleans.append("%s like '%%%s%%'"%(column.key, term))
+                booleans.append("%s like '%%%s%%'"%(column.name, term))
         return ' or '.join(booleans) + orderby
 
     def match(self, event=None):
@@ -352,7 +350,7 @@ class StashViewer():
         if not os.path.isfile(filename):
             showerror('Import File', '%s is not a file.'%filename)
         self.curdir = os.path.dirname(filename)
-        browser.open_new_tab('file://%s'%filename)
+        webbrowser.open_new_tab('file://%s'%filename)
         metadata = OrderedDict([(x, '') for x in self.columns])
         dialog = MetadataEditor(self.root, metadata, 'Create Metadata', hide_main=True)
         if dialog.result is None:
@@ -442,7 +440,7 @@ class StashViewer():
                 self.status.set('Editing cancelled.')
                 self.root.after(1000, self.clear_status)
                 continue
-            self.stash.set_search_keys(dialog.result, metadata['hash'])
+            self.stash.set_fields(dialog.result, metadata['hash'])
             metadata.update(dialog.result)
             self.search_result[index] = metadata
             for column in self.listboxes.keys():
@@ -454,12 +452,12 @@ class StashViewer():
 
     def configure(self):
         self.status.set('Configure Stash.')
-        dialog = KeyEditor(self.root,
-                           self.stash.search_keys,
-                           title='Manage Search Keys')
+        dialog = FieldEditor(self.root,
+                           self.stash.fields,
+                           title='Manage Metadata')
         for key, type in dialog.result:
             key = key.replace('"','')
-            self.stash.add_search_key(key, type)
+            self.stash.add_field(key, type)
             self.columns.append(key)
             self.add_pane(key)
         self.status.set('')
@@ -525,7 +523,7 @@ class MetadataEditor(Dialog):
         for key in keys:
             tk.Label(master, text=key+': ').grid(row=R,column=0, sticky=tk.E)
             self.entries[key] = entry = tk.Entry(master, width=40)
-            entry.insert(0,self.metadata[key])
+            entry.insert(0,self.metadata[key] or '')
             if key in ('hash', 'timestamp'):
                entry.config(state='readonly') 
             entry.grid(row=R, column=1, sticky=tk.EW)
@@ -544,59 +542,135 @@ class MetadataEditor(Dialog):
         self.parent.deiconify()
         self.parent.focus_set()
         self.destroy()
-        
-class KeyEditor(Dialog):
 
-    def __init__(self, parent, search_keys, title=None, new=False):
-        self.search_keys = search_keys
+class NewField(Dialog):
+
+    def body(self, parent):
+        self.name_var = name_var = tk.StringVar(parent)
+        self.name_entry = name_entry = tk.Entry(parent, textvariable=name_var)
+        self.type_var = type_var = tk.StringVar(parent)
+        type_var.set('text')
+        type_choice = tk.OptionMenu(
+            parent, type_var, 'text', 'integer', 'date', 'keyword')
+        type_choice.config(width=15, state=tk.NORMAL)
+        ttk.Label(parent, text='Name:').grid(row=0, column=0, sticky=tk.E)
+        name_entry.grid(row=0, column=1, columnspan=2, sticky=tk.W)
+        ttk.Label(parent, text='Type:').grid(row=1, column=0, sticky=tk.E)
+        type_choice.grid(row=1, column=1, sticky=tk.W)
+
+    def check_name(self, *args, **kwargs):
+        if self.validate():
+            self.SAVE.config(state=tk.NORMAL)
+        else:
+            self.SAVE.config(state=tk.DISABLED)
+
+    def validate(self):
+        name = self.name_var.get()
+        if name and name.find(' ') == -1:
+            return True
+        return False
+        
+    def ok(self, event=None):
+        self.result = (self.name_var.get(), self.type_var.get())
+        return super().ok(event)
+
+    def buttonbox(self):
+        box = tk.Frame(self)
+        self.SAVE = SAVE = ttk.Button(box, text="Add Field", width=10,
+            command=self.ok, default=tk.ACTIVE)
+        self.SAVE.pack(side=tk.LEFT, padx=5, pady=5)
+        self.CANCEL = ttk.Button(box, text="Cancel", width=10,
+                                command=self.cancel)
+        self.CANCEL.pack(side=tk.LEFT, padx=5, pady=5)
+        self.bind('<Escape>', self.cancel)
+        self.bind('<Return>', self.ok)
+        box.pack()
+        self.name_var.trace_add('write', self.check_name,)
+    
+class FieldEditor(Dialog):
+
+    def __init__(self, parent, fields, title=None, new=False):
+        self.fields = fields
         self.new = new
         Dialog.__init__(self, parent, title)
 
-    def body(self, master):
-        self.resizable(width=True, height=False)
-        master.pack_configure(fill=tk.BOTH, expand=1)
-        master.grid_rowconfigure(0, weight=1)
+    def body(self, parent):
+        #self.resizable(width=True, height=False)
+        parent.pack_configure(fill=tk.BOTH, expand=1)
+        parent.grid_rowconfigure(0, weight=1)
         for n in range(4):
-            master.grid_columnconfigure(n, weight=1)
-        self.scrollbar = scrollbar = Scrollbar(master)
-        self.keylist = keylist = tk.Listbox(master, )
-        keylist.bind('<Button-1>', lambda event: 'break')
-        self.typelist = typelist = tk.Listbox(master)
-        typelist.bind('<Button-1>', lambda event: 'break')
-        for skey in self.search_keys:
-            keylist.insert(tk.END, skey.key)
-            typelist.insert(tk.END, skey.type)
+            parent.grid_columnconfigure(n, weight=1)
+        self.scrollbar = scrollbar = Scrollbar(parent)
+        self.keylist = keylist = tk.Listbox(parent, selectmode='browse',
+            activestyle=tk.NONE)
+        keylist.bind('<Button-1>', self.select_row)
+        self.typelist = typelist = tk.Listbox(parent, selectmode='browse',
+            activestyle=tk.NONE)
+        typelist.bind('<Button-1>', self.select_row)
+        for field in self.fields[2:]:
+            keylist.insert(tk.END, field.name)
+            typelist.insert(tk.END, field.type)
         keylist.grid(row=0, column=0, columnspan=2, sticky=tk.NSEW)
         typelist.grid(row=0, column=2, columnspan=2, sticky=tk.NSEW)
         scrollbar.config(command=self.yview)
         keylist.config(yscrollcommand=lambda lo, hi: self.sb_set(keylist, lo, hi))
         typelist.config(yscrollcommand=lambda lo, hi: self.sb_set(typelist, lo, hi))
         scrollbar.grid(row=0, column=4, sticky=tk.NS)
-        self.keyentry = keyentry = tk.Entry(master)
-        keyentry.grid(row=1, column=0, columnspan=2, sticky=tk.EW)
-        self.typevar = typevar = tk.StringVar(master)
-        typevar.set('text')
-        typechoice = typechoice = tk.OptionMenu(
-            master, typevar,
-            'text', 'integer', 'date')
-        typechoice.grid(row=1, column=2)
-        addbutton=tk.Button(master, text='Add', command=self.add_key)
-        addbutton.grid(row=1, column=3)
+        plusminus = ttk.Frame(parent)
+        ttk.Button(plusminus, style='Toolbutton', text='+',
+            padding=(5, 0), command=self.add_field).grid(row=0, column=0)
+        ttk.Button(plusminus, style='Toolbutton', text='-',
+            padding=(5, 0), command=self.delete_field).grid(row=0, column=1)
+        plusminus.grid(row=1, column=0, sticky=tk.W)
         self.cancelled = True
         self.result = []
-        return self.keyentry
+
+    # By default, when a listview becomes inactive the rows all show
+    # as unselected.  Only one of our listboxes can be active.  So we
+    # set the background color of the selected item in the inactive
+    # listview.
+
+    def clear(self):
+        for column in self.keylist, self.typelist:
+            column.selection_clear(0, tk.END)
+            for i in range(len(self.fields) - 2):
+                column.itemconfig(i, bg='')
+            
+    def select(self, column, index):
+        for i in range(len(self.fields) - 2):
+            column.itemconfig(i, bg='')
+        column.selection_clear(0, tk.END)
+        column.selection_set(index)
+        column.activate(index)
+        #column.selection_anchor(index)
+        column.itemconfig(index, bg='systemSelectedTextBackgroundColor')
+
+    def select_row(self, event):
+        widget = event.widget
+        mouse = '@%s,%s'%(event.x, event.y)
+        index = widget.index(mouse)
+        if index < 0:
+            return
+        x, y, width, height = widget.bbox(mouse)
+        if event.y < y or event.y > y + height:
+            self.clear()
+            return 'break'
+        for i in range(len(self.fields) - 2):
+            if i != index:
+                widget.itemconfig(i, bg='')
+        other = self.keylist if widget == self.typelist else self.typelist
+        self.select(other, index)
 
     def buttonbox(self):
         box = tk.Frame(self)
-        self.OK = tk.Button(box, text="OK", width=10,
+        self.OK = ttk.Button(box, text="OK", width=10,
                             command=self.ok, default=tk.ACTIVE)
-        self.OK.config(state=tk.DISABLED)
         self.OK.pack(side=tk.LEFT, padx=5, pady=5)
-        self.Cancel = tk.Button(box, text="Cancel", width=10,
+        self.Cancel = ttk.Button(box, text="Cancel", width=10,
                                 command=self.cancel)
         self.Cancel.pack(side=tk.LEFT, padx=5, pady=5)
         self.bind('<Escape>', self.cancel)
-        self.bind('<Return>', self.add_key)
+        self.bind('<Return>', self.add_field)
         box.pack()
 
     def sb_set(self, widget, lo, hi):
@@ -609,15 +683,15 @@ class KeyEditor(Dialog):
         self.keylist.yview(scroll, number, units)
         self.typelist.yview(scroll, number, units)
 
-    def add_key(self, event=None):
-        key, type = self.keyentry.get(), self.typevar.get()
+    def add_field(self, event=None):
+        key, type = NewField(self).result
         self.result.append( (key, type) )
         self.keylist.insert(tk.END, key)
         self.typelist.insert(tk.END, type)
-        self.keyentry.delete(0, tk.END)
-        self.typevar.set('text')
-        self.OK.config(state=tk.NORMAL)
 
+    def delete_field(self, event=None):
+        print('delete', self.keyentry.get(), self.type_var.get())
+        
     def validate(self):
         if self.new and len(self.result) == 0:
             return False
@@ -653,60 +727,69 @@ elif sys.platform == 'linux2' :
 else: # fall back choice
     scut = Linux_shortcuts
 
+startup_stashes = []
+
 class StashApp:
-    def __init__(self, args=[]):
+    def __init__(self):
         self.curdir = os.path.expanduser('~')
-        self.viewers=[]
+        self.viewers = []
         self.root = root = tk.Tk(className='stash')
+        root.title('Stash')
         if sys.platform == 'darwin':
-            # Hide the root off the screen.
-            root.geometry('0x0+-10+0')
+            self.enable_apple_events()
+            root.withdraw()
         else:
-            root.title('Stash')
             root.option_add('*tearOff', tk.FALSE)
             root.geometry('300x0+100+10')
             root.tk.call('namespace', 'import', '::tk::dialog::file::')
             root.tk.call('set', '::tk::dialog::file::showHiddenBtn',  '1')
             root.tk.call('set', '::tk::dialog::file::showHiddenVar',  '0')
-        self.menubar = menubar = tk.Menu(self.root)
-        Python_menu = tk.Menu(menubar, name="apple")
-        Python_menu.add_command(label='About Stash ...', command=self.about)
-        Python_menu.add_separator()
-        if sys.platform != 'darwin':
-            root.protocol("WM_DELETE_WINDOW", self.quit)
-            Python_menu.add_command(label='Quit Stash'+scut['Quit'], command=self.quit)
-        menubar.add_cascade(label='Stash', menu=Python_menu)
-        self.File_menu = File_menu = tk.Menu(menubar, name="file")
+        root.protocol("WM_DELETE_WINDOW", self.quit)
+        menubar = tk.Menu(self.root)
+        Application_menu = tk.Menu(menubar, name="apple")
+        menubar.add_cascade(label='Stash', menu=Application_menu)
+        File_menu = tk.Menu(menubar, name="file")
+        menubar.add_cascade(label='File', menu=File_menu)
+        Window_menu = tk.Menu(menubar, name='window')
+        menubar.add_cascade(label='Window', menu=Window_menu)
+        Help_menu = tk.Menu(menubar, name="help")
+        menubar.add_cascade(label='Help', menu=Help_menu)
+        Application_menu.insert_command(0, label='About Stash ...',
+            command=self.about)
+        Application_menu.insert_separator(0)
         File_menu.add_command(label='Open...'+scut['Open'],
                               command=self.open)
         File_menu.add_command(label='New...'+scut['New'], command=self.new)
-        menubar.add_cascade(label='File', menu=File_menu)
-        self.Window_menu = Window_menu = tk.Menu(menubar, name='viewers')
-        menubar.add_cascade(label='Window', menu=Window_menu)
-        Help_menu = tk.Menu(menubar, name="help")
-        if sys.platform == 'darwin':
-            root.createcommand('::tk::mac::ShowHelp', self.help)
-        else:
-            Help_menu.add_command(label='Stash Help',
-                                  command=self.help)
-        menubar.add_cascade(label='Help', menu=Help_menu)
-        root.config(menu=menubar)        
-        for directory in args:
-            if os.path.isdir(directory):
-                self.launch_viewer(directory)
+        ##File_menu.add_command(label='Startup...', command=self.startup_msg)        
+        if sys.platform != 'darwin':
+            Application_menu.add_command(label='Quit Stash'+scut['Quit'], command=self.quit)
+            Help_menu.add_command(label='Stash Help', command=self.help)
+        root.config(menu=menubar)
+        self.startup_flag = False
+
+    def startup_launch(self):
+        for stash in startup_stashes:
+            self.launch_viewer(stash)
+        self.startup_flag = True
+
+    # def startup_msg(self):
+    #     tk.messagebox.showinfo(title='Startup',
+    #         message=str(startup_stashes) + ' :: ' + self.startup_flag)
+    #     for stash in startup_stashes:
+    #         self.launch_viewer(stash)
 
     def about(self):
         showinfo(title='About Stash',
                  message=u"""
-This is version %s of Stash, copyright \u00a9 2010-2017 by Marc Culler.
+This is version %s of Stash, copyright \u00a9 2010-2023 by Marc Culler.
 
 Stash is distributed under the GNU Public License, version 3 or higher.
  
 Stash is written in python, using the SQLite file-based database and \
 the Tk toolkit.
 
-To download Stash visit the bitbucket page:
-https://bitbucket.org/marc_culler/stash"""%__version__)
+To download Stash visit the github page:
+https://github.com/culler/stash"""%__version__)
 
     def quit(self):
         for viewer in [x for x in self.viewers]:
@@ -721,7 +804,7 @@ https://bitbucket.org/marc_culler/stash"""%__version__)
             return
         else:
             self.launch_viewer(directory)
-            self.curdir = os.path.dirname(directory)
+            #self.curdir = os.path.dirname(directory)
 
     def launch_viewer(self, directory):
         try:
@@ -729,19 +812,14 @@ https://bitbucket.org/marc_culler/stash"""%__version__)
         except StashError as E:
             showerror('Open Stash', E.value)
             return
-
         self.viewers.append(viewer)
-        self.root.withdraw()
-        self.Window_menu.add_command(label=viewer.stash_name,
-                                         command=viewer.activate)
             
     def checkout(self, stash):
         try:
             index = self.viewers.index(stash)
             self.viewers.remove(stash)
-            self.Window_menu.delete(index)
-        except IndexError:
-            pass
+        except ValueError:
+            print(self.viewers)
         if len(self.viewers) == 0:
             if sys.platform != 'darwin':
                 self.quit()
@@ -751,15 +829,16 @@ https://bitbucket.org/marc_culler/stash"""%__version__)
                 # these you get a blank menu bar.
                 self.root.deiconify()
                 self.root.focus_force()
+                self.root.withdraw()
 
     def new(self):
         newstash = asksaveasfilename(
             title='Choose a name and location for your stash.')
         if newstash == None or newstash == '':
             return
-        dialog = KeyEditor(self.root,
+        dialog = FieldEditor(self.root,
                            [],
-                           title='Create Search Keys',
+                           title='Create Metadata Fields',
                            new=True)
         if dialog.cancelled:
             return
@@ -769,19 +848,29 @@ https://bitbucket.org/marc_culler/stash"""%__version__)
         except StashError as E:
             showerror('Create New Stash', E.value)
         for key, type in dialog.result:
-            temp.add_search_key(key, type)
+            temp.add_field(key, type)
         temp.close()
         self.curdir = os.path.dirname(newstash)
         self.launch_viewer(newstash)
 
     def help(self):
-        browser.open_new_tab('file:' + stash_doc_path)
+        webbrowser.open_new_tab('file:' + stash_doc_path)
+
+    def enable_apple_events(self):
+        def doOpenFile(*args):
+            for arg in args:
+                dirname, filename = os.path.split(arg)
+                if filename == 'db.stash':
+                    startup_stashes.append(dirname)
+            self.startup_launch()
+
+        self.root.createcommand("::tk::mac::OpenDocument", doOpenFile)
 
     def run(self):
         self.root.mainloop()
-
+        
 def main():
-    app = StashApp(args=sys.argv)
+    app = StashApp()
     app.run()
     
 if __name__ == '__main__':
