@@ -5,6 +5,7 @@ usage:
 	clean, dist, doc, testpypi-upload, and pypi-upload	
 
 doc:
+	rm stash/doc/*
 	cd documentation ; make PYTHONEXE=python3 html
 	mv documentation/build/html stash/doc
 
