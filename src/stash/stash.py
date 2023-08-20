@@ -90,7 +90,7 @@ class Stash:
         else:
             self.stashdir = os.path.abspath(dirname)
             rootdir = os.path.join(dirname, '.stashfiles')
-            database = os.path.join(dirname, '.stashinfo')
+            database = os.path.join(dirname, 'db.stash')
             os.mkdir(dirname)
             os.mkdir(rootdir)
             self.connection = sqlite3.connect(database)
@@ -121,9 +121,8 @@ class Stash:
                     file_id integer references files,
                     keyword_id integer references keywords)""")
             self.tree = StashTree(os.path.abspath(rootdir))
-            if sys.platform == 'win32': #Hide .stashfiles and .stashinfo
+            if sys.platform == 'win32': #Hide .stashfiles
                 os.system('attrib.exe +H %s'%rootdir)
-                os.system('attrib.exe +H %s'%database)
                      
     def init_fields(self):
         """
