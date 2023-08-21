@@ -80,15 +80,13 @@ class Listbox(tk.Listbox):
 class StashViewer():
     def __init__(self, app, directory):
         self.app = app
-        self.curdir = os.path.expanduser('~')
+        self.stash_dir = directory
+        self.curdir = directory
         self.stash_name = os.path.basename(directory)
         self.stash = Stash()
         self.stash.open(directory)
         fields = self.stash.fields
-        if len(fields) > 2:
-            self.columns = [x.name for x in fields[2:]]
-        else:
-            self.columns = []
+        self.columns = columns = [x.name for x in fields]
         self.selected = set()
         self.root = root = tk.Toplevel(app.root, class_='stash')
         self.style = StashStyle(root)
@@ -108,16 +106,23 @@ class StashViewer():
                              background=windowbg)
         topframe.grid(row=0, columnspan=2, sticky=tk.EW)
         gobutton = ttk.Button(topframe,
-                             text='Find',
+                             text='Show Files',
                              command=self.match)
         gobutton.grid(row=0, column=0, sticky=tk.W+tk.S, padx=2)
-        searchlabel = tk.Label(topframe, text='files matching: ', bg=windowbg)
+        searchlabel = tk.Label(topframe, text='with: ', bg=windowbg)
         searchlabel.grid(row=0, column=1, sticky=tk.E)
-        self.matchbox = matchbox = tk.Entry(topframe,
-                                            highlightbackground=windowbg,
-                                            width=30)
-        matchbox.grid(row=0, column=2, sticky=tk.W, ipady=2)
-        matchbox.focus_set()
+        dummy_var = tk.StringVar(root)
+        keyword_button = tk.OptionMenu(topframe, variable=dummy_var, value='Keywords')
+        dummy_var.set('Keywords')
+        keyword_menu = keyword_button['menu']
+        keyword_menu.delete(0)
+        self.keyword_vars = {}
+        for keyword in self.stash.keywords:
+            var = tk.IntVar(root)
+            keyword_menu.add_checkbutton(label=keyword, onvalue=1, offvalue=0,
+                                             variable=var)
+            self.keyword_vars[keyword] = var
+        keyword_button.grid(row=0, column=2, sticky=tk.W, ipady=2)        
         columns = self.columns
         self.order_var = order_var = tk.StringVar(root)
         if len(columns) > 0:
@@ -148,6 +153,7 @@ class StashViewer():
                                                   relief=tk.FLAT)
         self.scrollbar = scrollbar = Scrollbar(root)
         self.listboxes = {}
+        self.filters = {}
         self.bgcolor = ['white','#f0f5ff']
         for column in self.columns:
             self.add_pane(column)
@@ -207,6 +213,7 @@ class StashViewer():
                          background=self.style.WindowBG,
                          relief=tk.RAISED,
                          borderwidth=1)
+        filter = ttk.Entry(pane)
         listbox = Listbox(pane, height=10, borderwidth=0,
                           activestyle=tk.NONE,
                           selectmode=tk.SINGLE,
@@ -217,9 +224,13 @@ class StashViewer():
         listbox.bind('<Button-1>', self.uniselect)
         listbox.bind('<Shift-Button-1>', self.multiselect)
         listbox.bind('<Double-Button-1>', self.double_click)
-        self.listboxes[column]=listbox
-        label.pack(fill = tk.X, expand=0, padx=0, pady=0)
-        listbox.pack(fill=tk.BOTH, expand=1, padx=5, pady=0,)
+        self.listboxes[column] = listbox
+        self.filters[column] = filter
+        pane.rowconfigure(2, weight=1)
+        pane.columnconfigure(0, weight=1)
+        label.grid(row=0, column=0, sticky=tk.EW)
+        filter.grid(row=1, column=0, sticky=tk.EW)
+        listbox.grid(row=2, column=0, sticky=tk.NSEW)
         self.mainlist.add(pane)
         self.mainlist.paneconfigure(pane, padx=0, pady=0)
 
@@ -233,7 +244,10 @@ class StashViewer():
             coords = pref_value.split(':')
             for N in range(len(coords) - 1, -1, -1):
                 self.root.update()
-                self.mainlist.sash_place(N, coords[N], 0)
+                try:
+                    self.mainlist.sash_place(N, coords[N], 0)
+                except tk.TclError:
+                    pass
 
     def activate(self):
         self.root.deiconify()
@@ -310,10 +324,9 @@ class StashViewer():
             count += 1
         self.status.set('%d file%s found.'%(count, '' if count==1 else 's'))
 
-    def match_clause(self, match):
-        terms = match.split()
+    def match_clause(self):
         booleans = []
-        columns = self.stash.fields[2:]
+        columns = self.stash.fields
         keys = [column.name for column in columns]
         first = self.order_var.get()
         if first in keys:
@@ -322,16 +335,30 @@ class StashViewer():
         keys = ["`%s`"%key for key in keys]
         if self.desc_var.get():
             keys[0] = keys[0] + ' desc'
-        orderby = ' order by ' + ', '.join(keys)
-        if len(terms) == 0:
+        if keys:
+            orderby = ' order by ' + ', '.join(keys)
+        else:
+            orderby = ''
+#        if len(terms) == 0:
+#            return '1' + orderby
+#        for term in terms:
+#            for column in columns:
+#                booleans.append("%s like '%%%s%%'"%(column.name, term))
+#        return ' or '.join(booleans) + orderby
+        for column in self.columns:
+            filter = self.filters[column].get()
+            if not filter:
+                continue
+            terms = filter.split()
+            for term in terms:
+                booleans.append("%s like '%%%s%%'"%(column, term))
+        if not booleans:
             return '1' + orderby
-        for term in terms:
-            for column in columns:
-                booleans.append("%s like '%%%s%%'"%(column.name, term))
-        return ' or '.join(booleans) + orderby
+        else:
+            return ' and '.join(booleans) + orderby
 
     def match(self, event=None):
-        where = self.match_clause(self.matchbox.get())
+        where = self.match_clause()
         self.search_result = self.stash.find_files(where)
         self.display_results()
 
@@ -342,7 +369,7 @@ class StashViewer():
         self.status.set('Import file.')
         filename = askopenfilename(parent=self.root,
                                    title='Choose a file to import',
-                                   initialdir=self.curdir)
+                                   initialdir=self.stash_dir)
         if filename is None or filename=='':
             self.status.set('Import cancelled.')
             self.root.after(1000, self.clear_status)
@@ -379,7 +406,7 @@ class StashViewer():
         default_extension = os.path.splitext(default_filename)[1]
         filename = asksaveasfilename(parent=self.root,
                                      initialfile=default_filename,
-                                     initialdir=self.curdir,
+                                     initialdir=self.stash_dir,
                                      defaultextension=default_extension,
                                      title='Choose an export name')
         if filename is None or filename == '':
@@ -607,7 +634,7 @@ class FieldEditor(Dialog):
         self.typelist = typelist = tk.Listbox(parent, selectmode='browse',
             activestyle=tk.NONE)
         typelist.bind('<Button-1>', self.select_row)
-        for field in self.fields[2:]:
+        for field in self.fields:
             keylist.insert(tk.END, field.name)
             typelist.insert(tk.END, field.type)
         keylist.grid(row=0, column=0, columnspan=2, sticky=tk.NSEW)
@@ -760,7 +787,6 @@ class StashApp:
         File_menu.add_command(label='Open...'+scut['Open'],
                               command=self.open)
         File_menu.add_command(label='New...'+scut['New'], command=self.new)
-        ##File_menu.add_command(label='Startup...', command=self.startup_msg)        
         if sys.platform != 'darwin':
             Application_menu.add_command(label='Quit Stash'+scut['Quit'], command=self.quit)
             Help_menu.add_command(label='Stash Help', command=self.help)
@@ -771,12 +797,6 @@ class StashApp:
         for stash in startup_stashes:
             self.launch_viewer(stash)
         self.startup_flag = True
-
-    # def startup_msg(self):
-    #     tk.messagebox.showinfo(title='Startup',
-    #         message=str(startup_stashes) + ' :: ' + self.startup_flag)
-    #     for stash in startup_stashes:
-    #         self.launch_viewer(stash)
 
     def about(self):
         showinfo(title='About Stash',
@@ -804,7 +824,7 @@ https://github.com/culler/stash"""%__version__)
             return
         else:
             self.launch_viewer(directory)
-            #self.curdir = os.path.dirname(directory)
+            self.curdir = os.path.dirname(directory)
 
     def launch_viewer(self, directory):
         try:

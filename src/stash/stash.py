@@ -112,7 +112,8 @@ class Stash:
             self.connection.execute("""
                 create table keywords (
                     keyword_id integer primary key autoincrement,
-                    keyword text)""")
+                    keyword text,
+                    unique(keyword_id, keyword))""")
             self.connection.execute("""
                 create index keyword_index on keywords(keyword_id)""")
             self.connection.execute("""
@@ -130,7 +131,10 @@ class Stash:
         """
         result = self.connection.execute('pragma table_info(files)')
         rows = result.fetchall()
-        self.fields = [Field(row) for row in rows[1:]]
+        self.fields = [Field(row) for row in rows[4:]]
+        result = self.connection.execute('select keyword from keywords')
+        rows = result.fetchall()
+        self.keywords = [row[0] for row in rows]
 
     def add_field(self, field_name, field_type):
         """
@@ -138,9 +142,10 @@ class Stash:
         """
         field_name = field_name.replace('"','')
         if field_type == 'keyword':
-            query = 'insert into keywords (keyword) values ("%s")' % field_name
+            query = 'insert or ignore into keywords (keyword) values ("%s")' % field_name
         else:
-            query = 'alter table files add column "%s" %s' % (name, type)
+            query = 'alter table files add column "%s" %s' % (
+                field_name, field_type)
         self.connection.execute(query)
         self.connection.commit()
         self.init_fields()
