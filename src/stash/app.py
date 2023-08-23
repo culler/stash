@@ -21,9 +21,11 @@
 #   Project homepage: https://bitbucket.org/marc_culler/stash
 #   Author homepage: https://marc-culler.info
 
-import os, sys, time
-from collections import OrderedDict
+import os
+import sys
+import time
 import webbrowser
+from collections import OrderedDict
 from .stash import Stash, StashError, __file__ as stashfile
 from . import __version__
 import tkinter as tk
@@ -341,7 +343,7 @@ class StashViewer():
         selected_keywords = [k for k in self.stash.keywords
             if self.keyword_vars[k].get()]
         if selected_keywords:
-            keyword_clause = 'c.keyword in (%s)'%','.join([
+            keyword_clause = 'c._keyword in (%s)'%','.join([
                 '"%s"'%k for k in selected_keywords])
         else:
             keyword_clause = ''        
@@ -392,6 +394,7 @@ class StashViewer():
         except StashError as E:
             showerror('Import File', E.value)
         self.status.set('')
+        self.match()
 
     def export_files(self):
         self.status.set('Export files.')
@@ -564,13 +567,13 @@ class MetadataEditor(Dialog):
             R += 1
         keyword_frame = ttk.Frame(parent)
         self.keyword_check_vars = {}
-        keyword_set = self.metadata['keywords']
+        keyword_set = self.metadata.get('keywords', [])
         for keyword in self.keywords:
             var = tk.IntVar(parent, int(keyword in keyword_set))
             check = tk.Checkbutton(keyword_frame, text=keyword, variable=var)
             self.keyword_check_vars[keyword] = var
-            check.pack()
-        tk.Label(parent, text='Keywords: ').grid(row=R,column=0, sticky=tk.E)
+            check.pack(anchor=tk.W)
+        tk.Label(parent, text='Keywords: ').grid(row=R,column=0, sticky=tk.NE)
         keyword_frame.grid(row=R, column=1, sticky=tk.W)
         self.entries[fields[0]].focus_set()
         
@@ -589,6 +592,20 @@ class MetadataEditor(Dialog):
         self.parent.deiconify()
         self.parent.focus_set()
         self.destroy()
+
+    # def buttonbox(self):
+    #     print('buttonbox')
+    #     box = tk.Frame(self)
+    #     self.SAVE = SAVE = ttk.Button(box, text="Save", width=10,
+    #         command=self.ok, default=tk.ACTIVE)
+    #     self.SAVE.pack(side=tk.LEFT, padx=5, pady=5)
+    #     self.CANCEL = ttk.Button(box, text="Cancel", width=10,
+    #                             command=self.cancel)
+    #     self.CANCEL.pack(side=tk.LEFT, padx=5, pady=5)
+    #     self.bind('<Escape>', self.cancel)
+    #     self.bind('<Return>', self.ok)
+    #     print('packing buttons')
+    #     box.pack()
 
 class NewField(Dialog):
 

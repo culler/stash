@@ -22,6 +22,8 @@
 #   Author homepage: https://marc-culler.info
 
 import os
+import sys
+import subprocess
 import hashlib
 import shutil
 import base62
@@ -96,6 +98,10 @@ class StashTree:
         os.makedirs(dir, exist_ok=True)
         path = os.path.join(dir, hash + extension)
         shutil.copy(filename, path)
+        if sys.platform == 'darwin':
+            print('running xattr on', path)
+            result = subprocess.call(['xattr', '-c', path])
+            print('result was', result)
         return hash
 
     def delete(self, hashname):
