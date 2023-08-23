@@ -23,6 +23,7 @@
 
 from .tree import StashTree
 import os, sys, sqlite3, webbrowser, shutil
+from collections import defaultdict
 
 class StashError(Exception):
     def __init__(self, value):
@@ -103,24 +104,24 @@ class Stash:
                     on conflict replace)""")
             self.connection.execute("""
                 create table files (
-                    file_id integer primary key autoincrement,
+                    _file_id integer primary key autoincrement,
                     hash text,
                     filename text,
                     timestamp datetime)""")
             self.connection.execute("""
-                create index file_index on files(file_id)""")
+                create index file_index on files(_file_id)""")
             self.connection.execute("""
                 create table keywords (
-                    keyword_id integer primary key autoincrement,
-                    keyword text,
-                    unique(keyword_id, keyword))""")
+                    _keyword_id integer primary key autoincrement,
+                    _keyword text,
+                    unique(_keyword_id, _keyword))""")
             self.connection.execute("""
-                create index keyword_index on keywords(keyword_id)""")
+                create index keyword_index on keywords(_keyword_id)""")
             self.connection.execute("""
                 create table keyword_x_file (
                     id integer primary key autoincrement,
-                    file_id integer references files,
-                    keyword_id integer references keywords)""")
+                    _file_id integer references files,
+                    _keyword_id integer references keywords)""")
             self.tree = StashTree(os.path.abspath(rootdir))
             if sys.platform == 'win32': #Hide .stashfiles
                 os.system('attrib.exe +H %s'%rootdir)
@@ -132,7 +133,7 @@ class Stash:
         result = self.connection.execute('pragma table_info(files)')
         rows = result.fetchall()
         self.fields = [Field(row) for row in rows[4:]]
-        result = self.connection.execute('select keyword from keywords')
+        result = self.connection.execute('select _keyword from keywords')
         rows = result.fetchall()
         self.keywords = [row[0] for row in rows]
 
@@ -142,7 +143,7 @@ class Stash:
         """
         field_name = field_name.replace('"','')
         if field_type == 'keyword':
-            query = 'insert or ignore into keywords (keyword) values ("%s")' % field_name
+            query = 'insert or ignore into keywords (`_keyword) values ("%s")' % field_name
         else:
             query = 'alter table files add column "%s" %s' % (
                 field_name, field_type)
@@ -163,7 +164,9 @@ class Stash:
         self.connection.execute(query,(hash, os.path.basename(filename)))
         self.connection.commit()
         if value_dict:
-            self.set_fields(value_dict, hash)
+            metadata = {'hash': hash}
+            metadats.update(value_dict)
+            self.set_fields(metadata)
 
     def delete_file(self, hash):
         """
@@ -196,28 +199,69 @@ class Stash:
         """
         webbrowser.open_new_tab('file://%s'%self.tree.find(hash))
 
-    def set_fields(self, value_dict, hash):
+    def set_fields(self, value_dict):
         """
         Update the metadata for a file.
         """
+        hash = value_dict['hash']
+        query = 'select _file_id from files where hash="%s"'%hash
+        file_id = self.connection.execute(query).fetchall()[0][0]
+        query = 'select * from keywords'
+        keyword_data = self.connection.execute(query).fetchall()
+        keyword_ids = dict((keyword, id) for id, keyword in keyword_data)
+        file_keywords = set(value_dict['keywords'])
         query = 'update files set '
-        query += ', '.join(['"%s"=\'%s\''%(key,
-                                           value_dict[key].replace("'","''"))
-                            for key in value_dict.keys()])
+        query += ', '.join(['"%s"=\'%s\''%(
+            key, str(value_dict[key]).replace("'","''"))
+            for key in value_dict.keys() if key[0] != '_' and key != 'hash'])
         query += " where hash='%s'"%hash
         self.connection.execute(query)
+        for keyword in keyword_ids:
+            if keyword in file_keywords:
+                query = """insert or ignore into
+                        keyword_x_file (_file_id, _keyword_id)
+                        values (%s, %s)"""%(file_id, keyword_ids[keyword])
+            else:
+                query = """delete from keyword_x_file
+                        where _file_id=%s and _keyword_id=%s """%(
+                            file_id, keyword_ids[keyword])
+            self.connection.execute(query)
         self.connection.commit()
+        
+    def find_files(self, where_clause, keywords=[]):
+        """ Query the stash database."""
 
-    def find_files(self, where_clause):
-        """
-        Query the metadata database.
-        """
-        query = 'select * from files where ' + where_clause
+        Q = """select a.*, c.* from files a left
+        join keyword_x_file b on a._file_id=b._file_id left join
+        keywords c on b._keyword_id=c._keyword_id where c._keyword in
+        ('third')"""
+        
+        query = """select a.*, c.* from files a
+            left join keyword_x_file b on a._file_id=b._file_id
+            left join keywords c on b._keyword_id=c._keyword_id
+            where """ + where_clause
+        #query = ('select * from files where ') + where_clause
+        print(query)
         old_factory = self.connection.row_factory
-        self.connection.row_factory = sqlite3.Row
-        result = self.connection.execute(query)
+        files_by_hash = {}
+        def stash_factory(cursor, row):
+            fields = [column[0] for column in cursor.description]
+            row = {key: value for key, value in zip(fields, row)}
+            row['keywords'] = set()
+            return row
+        self.connection.row_factory = stash_factory
+        files = self.connection.execute(query).fetchall()
+        for file in files:
+            files_by_hash[file['hash']] = file
+        kw_query = """select hash, _keyword from
+                      files a inner join keyword_x_file b inner join keywords c
+                      on a._file_id = b._file_id and b._keyword_id= c._keyword_id"""
+        self.connection.row_factory = None
+        for row in self.connection.execute(kw_query).fetchall():
+            hash, keyword = row
+            files_by_hash[hash]['keywords'].add(keyword)
         self.connection.row_factory = old_factory
-        return result.fetchall()
+        return files
 
     def set_preference(self, name, value, target='_all_'):
         """

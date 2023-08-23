@@ -119,8 +119,7 @@ class StashViewer():
         self.keyword_vars = {}
         for keyword in self.stash.keywords:
             var = tk.IntVar(root)
-            keyword_menu.add_checkbutton(label=keyword, onvalue=1, offvalue=0,
-                                             variable=var)
+            keyword_menu.add_checkbutton(label=keyword, variable=var)
             self.keyword_vars[keyword] = var
         keyword_button.grid(row=0, column=2, sticky=tk.W, ipady=2)        
         columns = self.columns
@@ -325,37 +324,40 @@ class StashViewer():
         self.status.set('%d file%s found.'%(count, '' if count==1 else 's'))
 
     def match_clause(self):
-        booleans = []
+        filters = []
         columns = self.stash.fields
-        keys = [column.name for column in columns]
+        fields = [column.name for column in columns]
         first = self.order_var.get()
-        if first in keys:
-            keys.remove(first)
-            keys.insert(0, first)
-        keys = ["`%s`"%key for key in keys]
+        if first in fields:
+            fields.remove(first)
+            fields.insert(0, first)
+        fields = ["`%s`"%field for field in fields]
         if self.desc_var.get():
-            keys[0] = keys[0] + ' desc'
-        if keys:
-            orderby = ' order by ' + ', '.join(keys)
+            fields[0] = fields[0] + ' desc'
+        if fields:
+            orderby = ' order by ' + ', '.join(fields)
         else:
             orderby = ''
-#        if len(terms) == 0:
-#            return '1' + orderby
-#        for term in terms:
-#            for column in columns:
-#                booleans.append("%s like '%%%s%%'"%(column.name, term))
-#        return ' or '.join(booleans) + orderby
+        selected_keywords = [k for k in self.stash.keywords
+            if self.keyword_vars[k].get()]
+        if selected_keywords:
+            keyword_clause = 'c.keyword in (%s)'%','.join([
+                '"%s"'%k for k in selected_keywords])
+        else:
+            keyword_clause = ''        
         for column in self.columns:
             filter = self.filters[column].get()
             if not filter:
                 continue
             terms = filter.split()
             for term in terms:
-                booleans.append("%s like '%%%s%%'"%(column, term))
-        if not booleans:
+                filters.append("%s like '%%%s%%'"%(column, term))
+        if not selected_keywords and not filters:
             return '1' + orderby
+        if selected_keywords and not filters:
+            return keyword_clause + orderby
         else:
-            return ' and '.join(booleans) + orderby
+            return keyword_clause + ' and '.join(filters) + orderby
 
     def match(self, event=None):
         where = self.match_clause()
@@ -379,7 +381,8 @@ class StashViewer():
         self.curdir = os.path.dirname(filename)
         webbrowser.open_new_tab('file://%s'%filename)
         metadata = OrderedDict([(x, '') for x in self.columns])
-        dialog = MetadataEditor(self.root, metadata, 'Create Metadata', hide_main=True)
+        dialog = MetadataEditor(self.root, metadata, self.stash.keywords,
+                                    'Create Metadata', hide_main=True)
         if dialog.result is None:
             self.status.set('Import cancelled')
             self.root.after(1000, self.clear_status)
@@ -388,7 +391,6 @@ class StashViewer():
             self.stash.insert_file(filename, dialog.result)
         except StashError as E:
             showerror('Import File', E.value)
-        self.matchbox.focus_set()
         self.status.set('')
 
     def export_files(self):
@@ -462,14 +464,15 @@ class StashViewer():
             return
         for index in self.selected:
             metadata = OrderedDict(self.search_result[index])
-            dialog = MetadataEditor(self.root, metadata, 'Edit Metadata')
+            dialog = MetadataEditor(self.root, metadata, self.stash.keywords,
+                                        'Edit Metadata')
             if dialog.result is None:
                 self.status.set('Editing cancelled.')
                 self.root.after(1000, self.clear_status)
                 continue
-            self.stash.set_fields(dialog.result, metadata['hash'])
             metadata.update(dialog.result)
             self.search_result[index] = metadata
+            self.stash.set_fields(metadata)
             for column in self.listboxes.keys():
                 listbox = self.listboxes[column]
                 listbox.delete(index)
@@ -518,8 +521,10 @@ class RemoveQuestion(Dialog):
                        'save metadata': self.save_meta.get()} 
 
 class MetadataEditor(Dialog):
-    def __init__(self, parent, metadata, title=None, hide_main=False):
+    def __init__(self, parent, metadata, keywords=[],
+                     title=None, hide_main=False):
         self.metadata = metadata
+        self.keywords = keywords
         self.entries = OrderedDict()
         tk.Toplevel.__init__(self, parent)
         if hide_main:
@@ -542,28 +547,43 @@ class MetadataEditor(Dialog):
         self.initial_focus.focus_set()
         self.wait_window(self)
         
-    def body(self, master):
+    def body(self, parent):
         R=0
-        master.pack_configure(fill=tk.X, expand=1)
-        master.grid_rowconfigure(0, weight=1)
-        keys = self.metadata.keys()
-        for key in keys:
-            tk.Label(master, text=key+': ').grid(row=R,column=0, sticky=tk.E)
-            self.entries[key] = entry = tk.Entry(master, width=40)
-            entry.insert(0,self.metadata[key] or '')
-            if key in ('hash', 'timestamp'):
-               entry.config(state='readonly') 
+        parent.pack_configure(fill=tk.X, expand=1)
+        parent.grid_rowconfigure(0, weight=1)
+        fields = [key for key in self.metadata.keys()
+                      if key[0] != '_' and key != 'keywords']
+        for field in fields:
+            tk.Label(parent, text=field + ': ').grid(
+                row=R, column=0, sticky=tk.E)
+            self.entries[field] = entry = tk.Entry(parent, width=40)
+            entry.insert(0,self.metadata[field] or '')
+            if field in ('hash', 'timestamp'):
+               entry.config(state='readonly')
             entry.grid(row=R, column=1, sticky=tk.EW)
             R += 1
-        for key in keys:
-            self.entries[key].focus_set()
-            break
+        keyword_frame = ttk.Frame(parent)
+        self.keyword_check_vars = {}
+        keyword_set = self.metadata['keywords']
+        for keyword in self.keywords:
+            var = tk.IntVar(parent, int(keyword in keyword_set))
+            check = tk.Checkbutton(keyword_frame, text=keyword, variable=var)
+            self.keyword_check_vars[keyword] = var
+            check.pack()
+        tk.Label(parent, text='Keywords: ').grid(row=R,column=0, sticky=tk.E)
+        keyword_frame.grid(row=R, column=1, sticky=tk.W)
+        self.entries[fields[0]].focus_set()
         
     def apply(self):
         self.result = OrderedDict()
         for key in self.entries:
             if key != 'hash':
                 self.result[key] = self.entries[key].get()
+        keywords = []
+        for keyword in self.keyword_check_vars:
+            if self.keyword_check_vars[keyword].get():
+                keywords.append(keyword)
+        self.result['keywords'] = keywords
 
     def cancel(self):
         self.parent.deiconify()
