@@ -25,8 +25,9 @@ import os
 import sys
 import time
 import webbrowser
+import subprocess
 from collections import OrderedDict
-from .stash import Stash, StashError, __file__ as stashfile
+from .stash import Stash, Field, StashError, __file__ as stashfile
 from . import __version__
 import tkinter as tk
 from tkinter import ttk
@@ -34,7 +35,6 @@ from tkinter.filedialog import askdirectory, askopenfilename, asksaveasfilename
 from tkinter.messagebox import showerror, showwarning, showinfo
 from tkinter.simpledialog import Dialog
 from urllib.request import pathname2url
-import threading
 from .theme import StashStyle
 
 if sys.platform == 'darwin':
@@ -92,10 +92,11 @@ class StashViewer():
         self.selected = set()
         self.root = root = tk.Toplevel(app.root, class_='stash')
         self.style = StashStyle(root)
+        self.panes = {}
         windowbg=self.style.WindowBG
         prefs = self.stash.get_preference('geometry')
         if prefs:
-            self.root.geometry(prefs[0]['value'])
+            root.geometry(prefs[0]['value'])
         else:
             root.geometry('+200+80')
         root.title(self.stash_name)
@@ -114,23 +115,26 @@ class StashViewer():
         searchlabel = tk.Label(topframe, text='with: ', bg=windowbg)
         searchlabel.grid(row=0, column=1, sticky=tk.E)
         dummy_var = tk.StringVar(root)
-        keyword_button = tk.OptionMenu(topframe, variable=dummy_var, value='Keywords')
+        self.keyword_button = tk.OptionMenu(topframe, variable=dummy_var,
+            value='Keywords')
         dummy_var.set('Keywords')
-        keyword_menu = keyword_button['menu']
+        keyword_menu = self.keyword_button['menu']
         keyword_menu.delete(0)
         self.keyword_vars = {}
         for keyword in self.stash.keywords:
             var = tk.IntVar(root)
             keyword_menu.add_checkbutton(label=keyword, variable=var)
             self.keyword_vars[keyword] = var
-        keyword_button.grid(row=0, column=2, sticky=tk.W, ipady=2)        
+        self.keyword_button.grid(row=0, column=2, sticky=tk.W, ipady=2)        
         columns = self.columns
         self.order_var = order_var = tk.StringVar(root)
         if len(columns) > 0:
             order_var.set(columns[0])
-            self.ordermenu = ordermenu = ttk.OptionMenu(topframe,
-                                                       order_var,
-                                                       *columns)
+            # What is wrong with the ttk optionmenu???
+            self.ordermenu = ordermenu = tk.OptionMenu(
+                topframe,
+                order_var,
+                *columns)
             label = tk.Label(topframe, text="Sort by: ", background=windowbg)
             label.grid(row=0, column=3, sticky=tk.E)
             ordermenu.grid(row=0, column=4)
@@ -203,7 +207,16 @@ class StashViewer():
         self.set_sashes()
         root.bind("<Return>", self.match)
         root.update_idletasks()
-        
+
+    def update_keyword_menu(self):
+        keyword_menu = self.keyword_button['menu']
+        keyword_menu.delete(0, tk.END)
+        self.keyword_vars = {}
+        for keyword in self.stash.keywords:
+            var = tk.IntVar(self.root)
+            keyword_menu.add_checkbutton(label=keyword, variable=var)
+            self.keyword_vars[keyword] = var
+
     def add_pane(self, column):
         # needs a minimum size if the lists are empty
         pane = tk.PanedWindow(self.mainlist,
@@ -234,6 +247,7 @@ class StashViewer():
         listbox.grid(row=2, column=0, sticky=tk.NSEW)
         self.mainlist.add(pane)
         self.mainlist.paneconfigure(pane, padx=0, pady=0)
+        self.panes[column] = pane
 
     def set_sashes(self):
         pref = self.stash.get_preference('sashes')
@@ -256,8 +270,15 @@ class StashViewer():
 
     def close(self):
         self.stash.set_preference('geometry', self.root.geometry())
-        sashes = [str(self.mainlist.sash_coord(N)[0])
-                  for N in range(len(self.columns) - 1)]
+        # This is tricky if the number of columns has changed.
+        sashes = []
+        N = 0
+        while True:
+            try:
+                sashes.append(str(self.mainlist.sash_coord(N)[0]))
+                N += 1
+            except tk.TclError:
+                break
         self.stash.set_preference('sashes', ':'.join(sashes))
         self.stash.close()
         self.app.checkout(self)
@@ -281,14 +302,17 @@ class StashViewer():
             self.selected.add(index)
             color='lightblue'
         for listbox in self.listboxes.values():
-            listbox.itemconfig(index, bg=color)
+            try:
+                listbox.itemconfig(index, bg=color)
+            except tk.TclError:
+                pass
 
     def clear(self):
         for listbox in self.listboxes.values():
             for index in self.selected:
                 try:
                     listbox.itemconfig(index, bg=self.bgcolor[index%2])
-                except TclError:
+                except tk.TclError:
                     pass
         self.selected = set()
         
@@ -300,7 +324,7 @@ class StashViewer():
         return 'break'
 
     def multiselect(self, event):
-        index = event.widget.index('@%s,%s'%(event.x, event.y))
+        index = event.widget.index('@%s,%s'%(event.x, eventg.y))
         if index > -1:
             self.toggle(index)
         return 'break'
@@ -313,7 +337,7 @@ class StashViewer():
         return 'break'
 
     def display_results(self):
-        self.selected = []
+        self.selected = set()
         for column in self.columns:
             self.listboxes[column].delete(0,tk.END)
         count = 0
@@ -325,7 +349,7 @@ class StashViewer():
             count += 1
         self.status.set('%d file%s found.'%(count, '' if count==1 else 's'))
 
-    def match_clause(self):
+    def match_info(self):
         filters = []
         columns = self.stash.fields
         fields = [column.name for column in columns]
@@ -342,11 +366,6 @@ class StashViewer():
             orderby = ''
         selected_keywords = [k for k in self.stash.keywords
             if self.keyword_vars[k].get()]
-        if selected_keywords:
-            keyword_clause = 'c._keyword in (%s)'%','.join([
-                '"%s"'%k for k in selected_keywords])
-        else:
-            keyword_clause = ''        
         for column in self.columns:
             filter = self.filters[column].get()
             if not filter:
@@ -354,16 +373,15 @@ class StashViewer():
             terms = filter.split()
             for term in terms:
                 filters.append("%s like '%%%s%%'"%(column, term))
-        if not selected_keywords and not filters:
-            return '1' + orderby
-        if selected_keywords and not filters:
-            return keyword_clause + orderby
+        if not filters:
+            where_clause = '1' + orderby
         else:
-            return keyword_clause + ' and '.join(filters) + orderby
+            where_clause = ' and '.join(filters) + orderby
+        return where_clause, selected_keywords
 
     def match(self, event=None):
-        where = self.match_clause()
-        self.search_result = self.stash.find_files(where)
+        where, keywords = self.match_info()
+        self.search_result = self.stash.find_files(where, keywords)
         self.display_results()
 
     def clear_status(self):
@@ -381,6 +399,8 @@ class StashViewer():
         if not os.path.isfile(filename):
             showerror('Import File', '%s is not a file.'%filename)
         self.curdir = os.path.dirname(filename)
+        if sys.platform == 'darwin':
+            subprocess.call(['xattr', '-c', filename])
         webbrowser.open_new_tab('file://%s'%filename)
         metadata = OrderedDict([(x, '') for x in self.columns])
         dialog = MetadataEditor(self.root, metadata, self.stash.keywords,
@@ -389,6 +409,10 @@ class StashViewer():
             self.status.set('Import cancelled')
             self.root.after(1000, self.clear_status)
             return
+        if sys.platform == 'darwin':
+            # Give preview some time to do its mischief
+            time.sleep(1)
+            subprocess.call(['xattr', '-c', filename])
         try:
             self.stash.insert_file(filename, dialog.result)
         except StashError as E:
@@ -485,16 +509,27 @@ class StashViewer():
 
     def configure(self):
         self.status.set('Configure Stash.')
-        dialog = FieldEditor(self.root,
-                           self.stash.fields,
-                           title='Manage Metadata')
-        for key, type in dialog.result:
-            key = key.replace('"','')
-            self.stash.add_field(key, type)
-            self.columns.append(key)
-            self.add_pane(key)
+        dialog = FieldEditor(self.root, self.stash,
+            title='Manage Metadata')
+        add, delete = dialog.result
+        for name, type in add:
+            name = name.replace('"','')
+            self.stash.add_field(name, type)
+            if type != 'keyword':
+                self.columns.append(name)
+                self.add_pane(name)
+            else:
+                self.update_keyword_menu()
+        for name, type in delete:
+            self.stash.delete_field(Field((None, name, type)))
+            if type != 'keyword':
+                if len(self.panes) == 1:
+                    raise RuntimeError('Cannot delete last pane')
+                pane = self.panes.pop(name)
+                self.mainlist.forget(pane)
+            else:
+                self.update_keyword_menu()
         self.status.set('')
-        return dialog.result
 
 class RemoveQuestion(Dialog):
     def __init__(self, master, row, title=None):
@@ -593,20 +628,6 @@ class MetadataEditor(Dialog):
         self.parent.focus_set()
         self.destroy()
 
-    # def buttonbox(self):
-    #     print('buttonbox')
-    #     box = tk.Frame(self)
-    #     self.SAVE = SAVE = ttk.Button(box, text="Save", width=10,
-    #         command=self.ok, default=tk.ACTIVE)
-    #     self.SAVE.pack(side=tk.LEFT, padx=5, pady=5)
-    #     self.CANCEL = ttk.Button(box, text="Cancel", width=10,
-    #                             command=self.cancel)
-    #     self.CANCEL.pack(side=tk.LEFT, padx=5, pady=5)
-    #     self.bind('<Escape>', self.cancel)
-    #     self.bind('<Return>', self.ok)
-    #     print('packing buttons')
-    #     box.pack()
-
 class NewField(Dialog):
 
     def body(self, parent):
@@ -631,13 +652,10 @@ class NewField(Dialog):
     def validate(self):
         name = self.name_var.get()
         if name and name.find(' ') == -1:
+            self.result = (name, self.type_var.get())
             return True
         return False
         
-    def ok(self, event=None):
-        self.result = (self.name_var.get(), self.type_var.get())
-        return super().ok(event)
-
     def buttonbox(self):
         box = tk.Frame(self)
         self.SAVE = SAVE = ttk.Button(box, text="Add Field", width=10,
@@ -653,9 +671,10 @@ class NewField(Dialog):
     
 class FieldEditor(Dialog):
 
-    def __init__(self, parent, fields, title=None, new=False):
-        self.fields = fields
-        self.new = new
+    def __init__(self, parent, stash, title=None):
+        fields = stash.fields + [
+            Field((None, kw, 'keyword')) for kw in stash.keywords]
+        self.fields = sorted(fields, key=lambda f: f.name)
         Dialog.__init__(self, parent, title)
 
     def body(self, parent):
@@ -686,8 +705,9 @@ class FieldEditor(Dialog):
         ttk.Button(plusminus, style='Toolbutton', text='-',
             padding=(5, 0), command=self.delete_field).grid(row=0, column=1)
         plusminus.grid(row=1, column=0, sticky=tk.W)
-        self.cancelled = True
-        self.result = []
+        #self.cancelled = True
+        self.selected = None
+        self.result = [], []
 
     # By default, when a listview becomes inactive the rows all show
     # as unselected.  Only one of our listboxes can be active.  So we
@@ -706,7 +726,6 @@ class FieldEditor(Dialog):
         column.selection_clear(0, tk.END)
         column.selection_set(index)
         column.activate(index)
-        #column.selection_anchor(index)
         column.itemconfig(index, bg='systemSelectedTextBackgroundColor')
 
     def select_row(self, event):
@@ -724,6 +743,7 @@ class FieldEditor(Dialog):
                 widget.itemconfig(i, bg='')
         other = self.keylist if widget == self.typelist else self.typelist
         self.select(other, index)
+        self.selected = index
 
     def buttonbox(self):
         box = tk.Frame(self)
@@ -748,20 +768,26 @@ class FieldEditor(Dialog):
         self.typelist.yview(scroll, number, units)
 
     def add_field(self, event=None):
-        key, type = NewField(self).result
-        self.result.append( (key, type) )
-        self.keylist.insert(tk.END, key)
+        try:
+            name, type = NewField(self).result
+        except TypeError:
+            return
+        self.result[0].append((name, type))
+        self.keylist.insert(tk.END, name)
         self.typelist.insert(tk.END, type)
 
     def delete_field(self, event=None):
-        print('delete', self.keyentry.get(), self.type_var.get())
+        if self.selected is None:
+            return
+        try:
+            name = self.keylist.get(self.selected)
+            type = self.typelist.get(self.selected)
+        except tk.TclError:
+            return
+        self.result[1].append((name, type))
+        self.keylist.delete(self.selected)
+        self.typelist.delete(self.selected)
         
-    def validate(self):
-        if self.new and len(self.result) == 0:
-            return False
-        else:
-            return True
-
     def apply(self):
         self.cancelled = False
         return self.result
@@ -876,7 +902,7 @@ https://github.com/culler/stash"""%__version__)
             index = self.viewers.index(stash)
             self.viewers.remove(stash)
         except ValueError:
-            print(self.viewers)
+            pass
         if len(self.viewers) == 0:
             if sys.platform != 'darwin':
                 self.quit()
@@ -893,19 +919,17 @@ https://github.com/culler/stash"""%__version__)
             title='Choose a name and location for your stash.')
         if newstash == None or newstash == '':
             return
-        dialog = FieldEditor(self.root,
-                           [],
-                           title='Create Metadata Fields',
-                           new=True)
-        if dialog.cancelled:
-            return
         temp = Stash()
+        dialog = FieldEditor(self.root, temp,
+                           title='Create Metadata Fields')
+        if not dialog.result:
+            return
         try:
             temp.create(newstash)
         except StashError as E:
             showerror('Create New Stash', E.value)
-        for key, type in dialog.result:
-            temp.add_field(key, type)
+        for name, type in dialog.result[0]:
+            temp.add_field(name, type)
         temp.close()
         self.curdir = os.path.dirname(newstash)
         self.launch_viewer(newstash)

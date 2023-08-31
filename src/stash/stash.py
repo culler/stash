@@ -25,6 +25,7 @@ from .tree import StashTree
 import os
 import sys
 import sqlite3
+import subprocess
 import webbrowser
 import shutil
 from collections import defaultdict
@@ -46,7 +47,7 @@ class Field:
         'integer'  : 'int',
         'date'     : 'date',
         'datetime' : 'datetime',
-        'keyword'  : 'text'
+        'keyword'  : 'keyword',
         }
 
     def __init__(self, row):
@@ -69,6 +70,7 @@ class Stash:
         self.connection = None
         self.stashdir = None
         self.fields = []
+        self.keywords = []
 
     def open(self, dirname):
         """
@@ -109,7 +111,7 @@ class Stash:
             self.connection.execute("""
                 create table files (
                     _file_id integer primary key autoincrement,
-                    hash text,
+                    hash text not null unique,
                     filename text,
                     timestamp datetime)""")
             self.connection.execute("""
@@ -143,11 +145,11 @@ class Stash:
 
     def add_field(self, field_name, field_type):
         """
-        Add a new search key.
+        Add a new search field.
         """
         field_name = field_name.replace('"','')
         if field_type == 'keyword':
-            query = """insert or ignore into table keywords
+            query = """insert or ignore into keywords
                        (_keyword) values ("%s")""" % field_name
         else:
             query = 'alter table files add column "%s" %s' % (
@@ -156,12 +158,36 @@ class Stash:
         self.connection.commit()
         self.init_fields()
 
+    def delete_field(self, field):
+        """
+        Delete a search field.
+        """
+        if field.type == 'keyword':
+            query = '''select _keyword_id from keywords
+                       where _keyword="%s"''' %field.name
+            keyword_id = self.connection.execute(query).fetchall()[0][0]
+            query = 'delete from keyword_x_file where _keyword_id=%d'%keyword_id
+            self.connection.execute(query)
+            query = 'delete from keywords where _keyword_id=%d'%keyword_id
+            self.connection.execute(query)
+            self.keywords.remove(field.name)
+        else:
+            query = 'alter table files drop column "%s"' % field.name
+            self.connection.execute(query)
+        self.connection.commit()
+        self.init_fields()
+
+    def check_hash(self, hash):
+        query = 'Select count(*) from files where hash="%s"'%hash
+        count = self.connection.execute(query).fetchone()[0]
+        return (count == 0)
+
     def insert_file(self, filename, value_dict):
         """
         Insert a file into the stash.
         """
         try:
-            hash = self.tree.insert(filename)
+            hash = self.tree.insert(filename, self)
         except ValueError:
             raise StashError('That file is already stored in the stash!')
         query = """insert into files (hash, filename, timestamp)
@@ -202,7 +228,14 @@ class Stash:
         """
         Open a viewer for a file.
         """
-        webbrowser.open_new_tab('file://%s'%self.tree.find(hash))
+        path = self.tree.find(hash)
+        if sys.platform == 'darwin':
+            # The webrowser module uses Preview for pdf files and Preview sets
+            # the quarantine xattr whenever it is opens a file.  So far, it
+            # seems to work to just clear the quarantine xattr before opening
+            # the file.
+            subprocess.call(['xattr', '-c', path])
+        webbrowser.open_new_tab('file://%s'%path)
 
     def set_fields(self, value_dict):
         """
@@ -215,14 +248,12 @@ class Stash:
         keyword_data = self.connection.execute(query).fetchall()
         keyword_ids = dict((keyword, id) for id, keyword in keyword_data)
         file_keywords = set(value_dict['keywords'])
-        print('file_keywords', file_keywords)
         query = 'update files set '
         query += ', '.join(['"%s"=\'%s\''%(
             key, str(value_dict[key]).replace("'","''"))
             for key in value_dict.keys()
             if key[0] != '_' and key not in ('hash', 'keywords')])
         query += " where hash='%s'"%hash
-        print(query)
         self.connection.execute(query)
         for keyword in keyword_ids:
             if keyword in file_keywords:
@@ -233,7 +264,6 @@ class Stash:
                 query = """delete from keyword_x_file
                         where _file_id=%s and _keyword_id=%s """%(
                             file_id, keyword_ids[keyword])
-            print(query)
             self.connection.execute(query)
         self.connection.commit()
         
@@ -241,24 +271,20 @@ class Stash:
         """ Query the stash database."""
         files_by_hash = {}
         old_factory = self.connection.row_factory
-        query = """select a.*, c._keyword from files a
-                   left join keyword_x_file b inner join keywords c
-                   on a._file_id = b._file_id and b._keyword_id= c._keyword_id
-                   where """ + where_clause
-        def stash_factory(cursor, row):
-            fields = [column[0] for column in cursor.description]
-            result = {key: value for key, value in zip(fields, row)}
-            result['keywords'] = set()
-            return result
-        self.connection.row_factory = stash_factory
+        self.connection.row_factory = sqlite3.Row
+        if keywords:
+            kw_clause = 'keywords._keyword in (%s) and ' % ','.join(
+                ['"%s"'%kw for kw in keywords])
+        else:
+            kw_clause = ''
+        query = """select distinct files.* from files left join
+                (
+                keyword_x_file inner join keywords
+                on keyword_x_file._keyword_id=keywords._keyword_id
+                )
+            on files._file_id=keyword_x_file._file_id
+            where """ + kw_clause + where_clause
         rows = self.connection.execute(query).fetchall()
-        for row in rows:
-            hash = row['hash']
-            keyword = row.pop('_keyword', '')
-            if hash not in files_by_hash:
-                files_by_hash[hash] = row
-            if keyword:
-                files_by_hash[hash]['keywords'].add(keyword)
         self.connection.row_factory = old_factory
         return rows
 

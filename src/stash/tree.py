@@ -88,20 +88,18 @@ class StashTree:
         infile.close()
         return base62.encode(int(hasher.hexdigest(), 16))
 
-    def insert(self, filename):
+    def insert(self, filename, stash):
         """
         Add a new file to the stash.
         """
         name, extension = os.path.splitext(filename)
         hash = self.hash(filename)
+        if not stash.check_hash(hash):
+            raise ValueError('File exists')            
         dir = os.path.join(self.root, hash[:2])
         os.makedirs(dir, exist_ok=True)
         path = os.path.join(dir, hash + extension)
         shutil.copy(filename, path)
-        if sys.platform == 'darwin':
-            print('running xattr on', path)
-            result = subprocess.call(['xattr', '-c', path])
-            print('result was', result)
         return hash
 
     def delete(self, hashname):
