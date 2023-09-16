@@ -102,11 +102,17 @@ class StashTree:
         shutil.copy(filename, path)
         return hash
 
-    def delete(self, hashname):
+    def delete(self, hash):
         """
         Delete a stashed file.
         """
-        path = os.path.join(self.root, hashname[:2], hashname)
+        dir = os.path.join(self.root, hash[:2])
+        for filename in os.listdir(dir):
+            if filename.startswith(hash):
+                break
+        else:
+            return
+        os.unlink(os.path.join(dir, filename))
 
     def find(self, hash):
         """

@@ -26,6 +26,7 @@ import sys
 import time
 import webbrowser
 import subprocess
+import json
 from collections import OrderedDict
 from .stash import Stash, Field, StashError, __file__ as stashfile
 from . import __version__
@@ -52,6 +53,11 @@ if sys.platform == 'darwin':
 else:
   stash_doc_path = os.path.abspath(os.path.join(os.path.dirname(stashfile), 'doc', 'index.html'))
 
+if sys.platform == 'darwin':
+    selected_bg = 'systemSelectedTextBackgroundColor'
+else:
+    selected_bg = '0xaaaaff'  # FIX ME
+    
 class Scrollbar(tk.Scrollbar):
     """
     Scrollbar that removes itself when not needed.
@@ -75,7 +81,6 @@ class Listbox(tk.Listbox):
     """
     # This allows the StashViewer to synchronize the lists if
     # one list is scrolled by using the mouse wheel.
-    # (Binding to mouse wheel events is currently broken in OS X.) 
     def yscroll(self, lo, hi):
         self.viewer.scrollbar_set(self, lo, hi)
 
@@ -89,11 +94,10 @@ class StashViewer():
         self.stash.open(directory)
         fields = self.stash.fields
         self.columns = columns = [x.name for x in fields]
-        self.selected = set()
+        self.selected = None
         self.root = root = tk.Toplevel(app.root, class_='stash')
         self.style = StashStyle(root)
         self.panes = {}
-        windowbg=self.style.WindowBG
         prefs = self.stash.get_preference('geometry')
         if prefs:
             root.geometry(prefs[0]['value'])
@@ -103,50 +107,41 @@ class StashViewer():
         root.protocol("WM_DELETE_WINDOW", self.close)
         root.grid_columnconfigure(0, weight=1)
         root.grid_rowconfigure(1, weight=1)
-        topframe = tk.Frame(root,
-                             relief=tk.FLAT,
-                             borderwidth=10,
-                             background=windowbg)
+        topframe = ttk.Frame(root)
         topframe.grid(row=0, columnspan=2, sticky=tk.EW)
         gobutton = ttk.Button(topframe,
                              text='Show Files',
                              command=self.match)
         gobutton.grid(row=0, column=0, sticky=tk.W+tk.S, padx=2)
-        searchlabel = tk.Label(topframe, text='with: ', bg=windowbg)
-        searchlabel.grid(row=0, column=1, sticky=tk.E)
-        dummy_var = tk.StringVar(root)
-        self.keyword_button = tk.OptionMenu(topframe, variable=dummy_var,
-            value='Keywords')
-        dummy_var.set('Keywords')
-        keyword_menu = self.keyword_button['menu']
-        keyword_menu.delete(0)
+        keyword_label = ttk.Label(topframe, text='with')
+        keyword_label.grid(row=0, column=1, sticky=tk.E)
+        keyword_var = tk.StringVar(root)
+        keyword_var.set('Keywords')
+        keyword_menu = tk.Menu(topframe)
         self.keyword_vars = {}
         for keyword in self.stash.keywords:
             var = tk.IntVar(root)
             keyword_menu.add_checkbutton(label=keyword, variable=var)
             self.keyword_vars[keyword] = var
-        self.keyword_button.grid(row=0, column=2, sticky=tk.W, ipady=2)        
+        self.keyword_button = ttk.Menubutton(topframe, text='keywords',
+            menu=keyword_menu)
+        self.keyword_button.grid(row=0, column=2, sticky=tk.W, ipady=2)
+        order_label = ttk.Label(topframe, text='sorted by')
+        order_label.grid(row=0, column=3, sticky=tk.E)
         columns = self.columns
         self.order_var = order_var = tk.StringVar(root)
-        if len(columns) > 0:
-            order_var.set(columns[0])
-            # What is wrong with the ttk optionmenu???
-            self.ordermenu = ordermenu = tk.OptionMenu(
-                topframe,
-                order_var,
-                *columns)
-            label = tk.Label(topframe, text="Sort by: ", background=windowbg)
-            label.grid(row=0, column=3, sticky=tk.E)
-            ordermenu.grid(row=0, column=4)
-            self.desc_var = desc_var = tk.BooleanVar(root)
-            desc_var.set(False)
-            self.descend = descend = tk.Checkbutton(topframe,
-                                                    text="Desc",
-                                                    variable=desc_var,
-                                                    background=windowbg,
-                                                    highlightthickness=0)
-            descend.grid(row=0, column=5)
-        topframe.grid_columnconfigure(3, weight=1)
+        order_var.set('timestamp')
+        self.order_menu = order_menu = tk.Menu(topframe)
+        for item in ['timestamp'] + columns:
+            order_menu.add_radiobutton(label=item, variable=order_var)
+        self.order_button = ttk.Menubutton(topframe, textvariable=order_var,
+            menu=order_menu)
+        self.order_button.grid(row=0, column=4, sticky=tk.W)
+        self.direction_var = direction_var = tk.StringVar(root)
+        self.direction = direction = ttk.OptionMenu(topframe, direction_var,
+            'descending', 'descending', 'ascending')
+        direction.grid(row=0, column=5, sticky=tk.W)
+        topframe.grid_columnconfigure(5, weight=1)
         self.mainlist = mainlist = tk.PanedWindow(root,
                                                   borderwidth=0,
                                                   sashpad=0,
@@ -159,18 +154,17 @@ class StashViewer():
         self.scrollbar = scrollbar = Scrollbar(root)
         self.listboxes = {}
         self.filters = {}
-        self.bgcolor = ['white','#f0f5ff']
         for column in self.columns:
             self.add_pane(column)
         scrollbar.config(command=self.yview)
         mainlist.grid(row=1, column=0, sticky=tk.NSEW)
         scrollbar.grid(row=1, column=1, sticky=tk.NS)
-        spacer = tk.Frame(root, background=windowbg, height=2, borderwidth=0,
-                 relief=tk.FLAT)
+        spacer = ttk.Frame(root, height=2, borderwidth=0)
         spacer.grid(row=2, columnspan=2, sticky=tk.EW)
         self.status = status = tk.StringVar(self.root)
         statusbox = tk.Entry(self.root,
                              state=tk.DISABLED,
+                             foreground='red',
                              disabledforeground='red',
                              textvariable=status,
                              relief=tk.FLAT)
@@ -180,6 +174,7 @@ class StashViewer():
         Application_menu = tk.Menu(menubar, name="apple")
         menubar.add_cascade(label='Stash', menu=Application_menu)
         File_menu = tk.Menu(menubar, name="file")
+        File_menu.add_command(label='Configure...', command=self.configure)
         menubar.add_cascade(label='File', menu=File_menu)
         Action_menu = tk.Menu(menubar, name='action')
         menubar.add_cascade(label='Action', menu=Action_menu)
@@ -193,10 +188,9 @@ class StashViewer():
         File_menu.add_command(label='New...'+scut['New'], command=self.app.new)
         
         Action_menu.add_command(label='Import...', command=self.import_file)
-        Action_menu.add_command(label='Export...', command=self.export_files)
-        Action_menu.add_command(label='Remove...', command=self.remove_files)
+        Action_menu.add_command(label='Export...', command=self.export_file)
+        Action_menu.add_command(label='Remove...', command=self.remove_file)
         Action_menu.add_command(label='Metadata...', command=self.metadata)
-        Action_menu.add_command(label='Configure...', command=self.configure)
         Help_menu = tk.Menu(menubar, name="help")
         menubar.add_cascade(label='Help', menu=Help_menu)
         if sys.platform != 'darwin':
@@ -207,6 +201,7 @@ class StashViewer():
         self.set_sashes()
         root.bind("<Return>", self.match)
         root.update_idletasks()
+        self.match()
 
     def update_keyword_menu(self):
         keyword_menu = self.keyword_button['menu']
@@ -223,20 +218,13 @@ class StashViewer():
                               orient=tk.VERTICAL,
                               borderwidth=0,
                               background='white')
-        label = tk.Label(pane, text=column,
-                         background=self.style.WindowBG,
-                         relief=tk.RAISED,
-                         borderwidth=1)
+        label = ttk.Label(pane, text=column)
         filter = ttk.Entry(pane)
         listbox = Listbox(pane, height=10, borderwidth=0,
-                          activestyle=tk.NONE,
-                          selectmode=tk.SINGLE,
-                          relief=tk.FLAT,
-                          background='white')
+                          selectmode=tk.SINGLE)
         listbox.viewer = self
         listbox.config(yscrollcommand = listbox.yscroll)
-        listbox.bind('<Button-1>', self.uniselect)
-        listbox.bind('<Shift-Button-1>', self.multiselect)
+        listbox.bind('<Button-1>', self.select_row)
         listbox.bind('<Double-Button-1>', self.double_click)
         self.listboxes[column] = listbox
         self.filters[column] = filter
@@ -294,50 +282,27 @@ class StashViewer():
         for listbox in self.listboxes.values():
             listbox.yview(scroll, number, units)
 
-    def toggle(self, index):
-        if index in self.selected:
-            self.selected.remove(index)
-            color=self.bgcolor[index%2]
-        else:
-            self.selected.add(index)
-            color='lightblue'
-        for listbox in self.listboxes.values():
-            try:
-                listbox.itemconfig(index, bg=color)
-            except tk.TclError:
-                pass
-
-    def clear(self):
-        for listbox in self.listboxes.values():
-            for index in self.selected:
-                try:
-                    listbox.itemconfig(index, bg=self.bgcolor[index%2])
-                except tk.TclError:
-                    pass
-        self.selected = set()
-        
-    def uniselect(self, event):
+    def select_row(self, event):
         index = event.widget.index('@%s,%s'%(event.x, event.y))
-        if index > -1:
-            self.clear()
-            self.toggle(index)
-        return 'break'
-
-    def multiselect(self, event):
-        index = event.widget.index('@%s,%s'%(event.x, eventg.y))
-        if index > -1:
-            self.toggle(index)
-        return 'break'
-
+        if index < 0:
+            return
+        # If a row is selected in one column, select the same row
+        # in all columns
+        if not self.selected is None:
+            for listbox in self.listboxes.values():
+                listbox.itemconfig(self.selected, bg='')
+        for listbox in self.listboxes.values():
+            listbox.itemconfig(index, bg=selected_bg)
+        self.selected = index
+            
     def double_click(self, event):
-        self.uniselect(event)
-        if len(self.selected) > 0:
-            for index in self.selected:
-                self.stash.view_file(self.search_result[index]['hash'])
-        return 'break'
+        self.select_row(event)
+        if not self.selected is None:
+            self.stash.view_file(self.search_result[self.selected]['hash'])
+        #return 'break'
 
     def display_results(self):
-        self.selected = set()
+        self.selected = None
         for column in self.columns:
             self.listboxes[column].delete(0,tk.END)
         count = 0
@@ -345,25 +310,24 @@ class StashViewer():
             for column in self.columns:
                 box = self.listboxes[column]
                 box.insert(tk.END, row[column] or '')
-                box.itemconfig(count, background=self.bgcolor[count%2])
             count += 1
         self.status.set('%d file%s found.'%(count, '' if count==1 else 's'))
 
     def match_info(self):
         filters = []
         columns = self.stash.fields
-        fields = [column.name for column in columns]
+        fields = ['timestamp'] + [column.name for column in columns]
         first = self.order_var.get()
         if first in fields:
             fields.remove(first)
             fields.insert(0, first)
-        fields = ["`%s`"%field for field in fields]
-        if self.desc_var.get():
-            fields[0] = fields[0] + ' desc'
-        if fields:
-            orderby = ' order by ' + ', '.join(fields)
+        order_terms = ['`%s`'%field for field in fields]
+        if self.direction_var.get() == 'descending':
+            order_terms[0] = order_terms[0] + ' desc'
+        if order_terms:
+            order_by = ' order by ' + ', '.join(order_terms)
         else:
-            orderby = ''
+            order_by = ''
         selected_keywords = [k for k in self.stash.keywords
             if self.keyword_vars[k].get()]
         for column in self.columns:
@@ -374,9 +338,9 @@ class StashViewer():
             for term in terms:
                 filters.append("%s like '%%%s%%'"%(column, term))
         if not filters:
-            where_clause = '1' + orderby
+            where_clause = '1' + order_by
         else:
-            where_clause = ' and '.join(filters) + orderby
+            where_clause = ' and '.join(filters) + order_by
         return where_clause, selected_keywords
 
     def match(self, event=None):
@@ -389,9 +353,8 @@ class StashViewer():
 
     def import_file(self):# Could accept many files?
         self.status.set('Import file.')
-        filename = askopenfilename(parent=self.root,
-                                   title='Choose a file to import',
-                                   initialdir=self.stash_dir)
+        filename = askopenfilename(title='Choose a file to import',
+                                       filetypes=[('All files', '*')])
         if filename is None or filename=='':
             self.status.set('Import cancelled.')
             self.root.after(1000, self.clear_status)
@@ -420,17 +383,20 @@ class StashViewer():
         self.status.set('')
         self.match()
 
-    def export_files(self):
-        self.status.set('Export files.')
-        if len(self.selected) == 0:
-            showerror('Export Files', 'Please select some files.')
-            return
-        for index in self.selected:
-            row = self.search_result[index]
-            self.export_one_file(row)
+    def export_file(self, index=None):
+        self.status.set('Exporting file.')
+        if index is None:
+            if self.selected is None:
+                showerror('Export Files', 'Please select a file.')
+                return
+            else:
+                index = self.selected
+                self.selected = None
+        row = self.search_result[index]
         self.status.set('')
+        return self.export_the_file(row)
 
-    def export_one_file(self, row):
+    def export_the_file(self, row):
         default_filename = row['filename']
         default_extension = os.path.splitext(default_filename)[1]
         filename = asksaveasfilename(parent=self.root,
@@ -448,63 +414,56 @@ class StashViewer():
             return None
         return filename
 
-    def remove_files(self):
-        self.status.set('Remove files.')
-        count = 0
-        if len(self.selected) == 0:
-            showerror('Remove Files', 'Please select some files.')
+    def remove_file(self):
+        self.status.set('Remove file.')
+        if self.selected is None:
+            showerror('Remove File', 'Please select a file.')
             return
-        selected = list(self.selected)
-        while len(selected) > 0:
-            index = selected.pop()
-            self.selected.remove(index)
-            row = self.search_result[index]
-            dialog = RemoveQuestion(self.root, row, title='Remove File')
-            if dialog.result is None:
-                self.status.set('Removal cancelled.')
-                self.root.after(1000, self.clear_status)
-                return
-            if dialog.result['export first']:
-                filename = self.export_one_file(row)
-                if filename is None:
+        index = self.selected
+        self.selected = None
+        row = self.search_result[index]
+        dialog = RemoveQuestion(self.root, row, title='Remove File')
+        if dialog.result is None:
+            self.status.set('Removal cancelled.')
+            self.root.after(1000, self.clear_status)
+            return
+        if dialog.result['export first']:
+            filename = self.export_file(index=index)
+            if filename is None:
                     return
-            if dialog.result['save metadata']:
-                meta_file = open(filename + '.meta', 'w')
-                meta_file.write('{\n')
-                for key in row.keys():
-                    if key in ('hash', 'filename', 'timestamp'):
-                        continue
-                    meta_file.write(" '%s' : '%s'\n"%(key, row[key]))
-                meta_file.write('}\n')
-                meta_file.close()
-            self.stash.delete_file(row['hash'])
-            count += 1
-            self.search_result.pop(index)
-            for listbox in self.listboxes.values():
-                listbox.delete(index)
-        self.status.set('%s file%s removed.'%(count, '' if count==1 else 's'))
+        if dialog.result['save metadata']:
+            metadata = dict(row)
+            for key in ('_file_id', 'hash', 'filename', 'timestamp'):
+                metadata.pop(key)
+            with open(filename + '.meta', 'w') as output:
+                json.dump(metadata, output, indent=2)
+        self.stash.delete_file(row['hash'])
+        self.search_result.pop(index)
+        for listbox in self.listboxes.values():
+            listbox.delete(index)
+        self.status.set('file removed.')
 
     def metadata(self):
         self.status.set('Edit Metadata.')
-        if len(self.selected) == 0:
-            showerror('Edit Metadata', 'Please select some files.')
+        if self.selected is None:
+            showerror('Edit Metadata', 'Please select a file.')
             return
-        for index in self.selected:
-            metadata = OrderedDict(self.search_result[index])
-            dialog = MetadataEditor(self.root, metadata, self.stash.keywords,
-                                        'Edit Metadata')
-            if dialog.result is None:
-                self.status.set('Editing cancelled.')
-                self.root.after(1000, self.clear_status)
-                continue
-            metadata.update(dialog.result)
-            self.search_result[index] = metadata
-            self.stash.set_fields(metadata)
-            for column in self.listboxes.keys():
-                listbox = self.listboxes[column]
-                listbox.delete(index)
-                listbox.insert(index, dialog.result[column])
-                listbox.itemconfig(index, bg='lightblue')
+        index = self.selected
+        metadata = OrderedDict(self.search_result[index])
+        dialog = MetadataEditor(self.root, metadata, self.stash.keywords,
+                                    'Edit Metadata')
+        if dialog.result is None:
+            self.status.set('Editing cancelled.')
+            self.root.after(1000, self.clear_status)
+            return
+        metadata.update(dialog.result)
+        self.search_result[index] = metadata
+        self.stash.set_fields(metadata)
+        for column in self.listboxes.keys():
+            listbox = self.listboxes[column]
+            listbox.delete(index)
+            listbox.insert(index, dialog.result[column])
+            listbox.itemconfig(index, bg=selected_bg)
         self.status.set('')
 
     def configure(self):
@@ -540,9 +499,11 @@ class RemoveQuestion(Dialog):
         self.export=tk.BooleanVar(master)
         self.export.set(True)
         self.save_meta=tk.BooleanVar(master)
-        frame = tk.Frame(master, borderwidth=2, relief=tk.SUNKEN)
+        frame = ttk.Frame(master)#, borderwidth=2, relief=tk.SUNKEN)
         for key in self.row.keys():
-            tk.Label(frame, text='%s: %s'%(key, self.row[key])
+            if key.startswith('_'):
+                continue
+            ttk.Label(frame, text='%s: %s'%(key, self.row[key])
                      ).pack(ipadx=20, anchor=tk.W)
         frame.pack(padx=20, pady=20, fill=tk.X, expand=1)
         tk.Checkbutton(master,
@@ -573,7 +534,7 @@ class MetadataEditor(Dialog):
             self.title(title)
         self.parent = parent
         self.result = None
-        body = tk.Frame(self)
+        body = ttk.Frame(self)
         self.initial_focus = self.body(body)
         body.pack(padx=5, pady=5)
         self.buttonbox()
@@ -594,7 +555,7 @@ class MetadataEditor(Dialog):
         for field in fields:
             tk.Label(parent, text=field + ': ').grid(
                 row=R, column=0, sticky=tk.E)
-            self.entries[field] = entry = tk.Entry(parent, width=40)
+            self.entries[field] = entry = ttk.Entry(parent, width=40)
             entry.insert(0,self.metadata[field] or '')
             if field in ('hash', 'timestamp'):
                entry.config(state='readonly')
@@ -610,7 +571,7 @@ class MetadataEditor(Dialog):
             check.pack(anchor=tk.W)
         tk.Label(parent, text='Keywords: ').grid(row=R,column=0, sticky=tk.NE)
         keyword_frame.grid(row=R, column=1, sticky=tk.W)
-        self.entries[fields[0]].focus_set()
+        self.after(500, self.entries[fields[0]].focus_force)
         
     def apply(self):
         self.result = OrderedDict()
@@ -632,7 +593,7 @@ class NewField(Dialog):
 
     def body(self, parent):
         self.name_var = name_var = tk.StringVar(parent)
-        self.name_entry = name_entry = tk.Entry(parent, textvariable=name_var)
+        self.name_entry = name_entry = ttk.Entry(parent, textvariable=name_var)
         self.type_var = type_var = tk.StringVar(parent)
         type_var.set('text')
         type_choice = tk.OptionMenu(
@@ -642,6 +603,7 @@ class NewField(Dialog):
         name_entry.grid(row=0, column=1, columnspan=2, sticky=tk.W)
         ttk.Label(parent, text='Type:').grid(row=1, column=0, sticky=tk.E)
         type_choice.grid(row=1, column=1, sticky=tk.W)
+        self.after(500, name_entry.focus_force)
 
     def check_name(self, *args, **kwargs):
         if self.validate():
@@ -657,7 +619,7 @@ class NewField(Dialog):
         return False
         
     def buttonbox(self):
-        box = tk.Frame(self)
+        box = ttk.Frame(self)
         self.SAVE = SAVE = ttk.Button(box, text="Add Field", width=10,
             command=self.ok, default=tk.ACTIVE)
         self.SAVE.pack(side=tk.LEFT, padx=5, pady=5)
@@ -726,7 +688,7 @@ class FieldEditor(Dialog):
         column.selection_clear(0, tk.END)
         column.selection_set(index)
         column.activate(index)
-        column.itemconfig(index, bg='systemSelectedTextBackgroundColor')
+        column.itemconfig(index, bg=selected_bg)
 
     def select_row(self, event):
         widget = event.widget
@@ -746,7 +708,7 @@ class FieldEditor(Dialog):
         self.selected = index
 
     def buttonbox(self):
-        box = tk.Frame(self)
+        box = ttk.Frame(self)
         self.OK = ttk.Button(box, text="OK", width=10,
                             command=self.ok, default=tk.ACTIVE)
         self.OK.pack(side=tk.LEFT, padx=5, pady=5)

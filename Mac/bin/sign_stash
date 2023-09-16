@@ -1,0 +1,25 @@
+#!/bin/bash
+set -e
+source IDs.sh
+cd dist
+EXECUTABLES=`ls Stash.app/Contents/MacOS/*`
+PYTHON=Stash.app/Contents/Frameworks/Python.framework/Versions/3.11/Python
+SO_FILES=`find Stash.app -name '*.so'`
+DYLIBS=`find Stash.app -name '*.dylib'`
+SIGN="codesign -v -s $DEV_ID --timestamp --options runtime --force"
+
+for file in $EXECUTABLES; do
+    $SIGN $file
+done
+
+for file in $SO_FILES; do
+    $SIGN $file
+done
+
+for file in $DYLIBS; do
+    $SIGN $file
+done
+
+$SIGN $PYTHON
+$SIGN Stash.app
+	    

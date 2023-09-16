@@ -1,0 +1,9 @@
+#!/bin/bash
+set -e
+source IDs.sh
+DMG=Stash.dmg
+APP=dist/Stash.app
+OPTIONS="--wait --no-progress --apple-id $APPLE_ID \
+--team-id $DEV_ID --password $ONE_TIME_PASS --wait"
+xcrun notarytool submit $DMG $OPTIONS
+xcrun stapler staple $DMG

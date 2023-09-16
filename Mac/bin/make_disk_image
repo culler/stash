@@ -1,0 +1,15 @@
+#!/bin/bash
+DMG_NAME=Stash.dmg
+SOURCE=dist/Stash.app
+rm -f $DMG_NAME
+bin/create-dmg \
+  --volname Stash \
+  --volicon stash_icon.icns \
+  --background background.png \
+  --window-size 540 300 \
+  --icon-size 96 \
+  --icon Stash 10 100 \
+  --app-drop-link 310 100 \
+  --format ULFO \
+  --no-internet-enable \
+  $DMG_NAME $SOURCE
