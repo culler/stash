@@ -177,44 +177,47 @@ class Stash:
         self.connection.commit()
         self.init_fields()
 
-    def check_hash(self, hash):
-        query = 'Select count(*) from files where hash="%s"'%hash
+    def check_hash(self, hash_string):
+        query = 'Select count(*) from files where hash="%s"'%hash_string
         count = self.connection.execute(query).fetchone()[0]
         return (count == 0)
 
-    def insert_file(self, filename, value_dict):
+    def check_file(self, filename):
+        hash_string = self.tree.hash_string(filename)
+        if not self.check_hash(hash_string):
+            raise StashError('That file is already stored in the stash!')
+        return hash_string
+        
+    def insert_file(self, filename, value_dict, hash_string=None):
         """
         Insert a file into the stash.
         """
-        try:
-            hash = self.tree.insert(filename, self)
-        except ValueError:
-            raise StashError('That file is already stored in the stash!')
+        self.tree.insert(filename, self, hash_string=hash_string)
         query = """insert into files (hash, filename, timestamp)
                    values (?, ?, datetime('now'))"""
-        self.connection.execute(query,(hash, os.path.basename(filename)))
+        self.connection.execute(query,(hash_string, os.path.basename(filename)))
         self.connection.commit()
         if value_dict:
-            metadata = {'hash': hash}
+            metadata = {'hash': hash_string}
             metadata.update(value_dict)
             self.set_fields(metadata)
 
-    def delete_file(self, hash):
+    def delete_file(self, hash_string):
         """
         Remove a file from the stash.
         """
-        self.tree.delete(hash)
-        query = "delete from files where hash='%s'"%hash
+        self.tree.delete(hash_string)
+        query = "delete from files where hash='%s'"%hash_string
         self.connection.execute(query)
         self.connection.commit()
 
-    def export_file(self, hash, export_path):
+    def export_file(self, hash_string, export_path):
         """
         Copy a file in the stash to another location.
         """
         if os.path.exists(export_path):
             raise StashError('File exists.')
-        source = open(self.tree.find(hash), 'rb')
+        source = open(self.tree.find(hash_string), 'rb')
         target = open(export_path, 'wb')
         while True:
             block = source.read(8192)
@@ -224,11 +227,11 @@ class Stash:
         source.close()
         target.close()
     
-    def view_file(self, hash):
+    def view_file(self, hash_string):
         """
         Open a viewer for a file.
         """
-        path = self.tree.find(hash)
+        path = self.tree.find(hash_string)
         if sys.platform == 'darwin':
             # The webrowser module uses Preview for pdf files and Preview sets
             # the quarantine xattr whenever it is opens a file.  So far, it
@@ -241,8 +244,8 @@ class Stash:
         """
         Update the metadata for a file.
         """
-        hash = value_dict['hash']
-        query = 'select _file_id from files where hash="%s"'%hash
+        hash_string = value_dict['hash']
+        query = 'select _file_id from files where hash="%s"'%hash_string
         file_id = self.connection.execute(query).fetchall()[0][0]
         query = 'select * from keywords'
         keyword_data = self.connection.execute(query).fetchall()
@@ -253,7 +256,7 @@ class Stash:
             key, str(value_dict[key]).replace("'","''"))
             for key in value_dict.keys()
             if key[0] != '_' and key not in ('hash', 'keywords')])
-        query += " where hash='%s'"%hash
+        query += " where hash='%s'"%hash_string
         self.connection.execute(query)
         for keyword in keyword_ids:
             if keyword in file_keywords:

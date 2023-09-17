@@ -34,17 +34,17 @@ class Item:
     """
     def __init__(self, filename, source=None):
         self.source = source
-        self.hash, self.extension = os.path.splitext(filename)
+        self.hash_string, self.extension = os.path.splitext(filename)
         self.parent = None
 
     def __repr__(self):
-        return self.hash + self.extension
+        return self.hash_string + self.extension
 
     def __cmp__(self, other):
-        return cmp(self.hash, other.hash)
+        return cmp(self.hash_string, other.hash_string)
 
     def __eq__(self, other):
-        return self.hash == other.hash
+        return self.hash_string == other.hash_string
 
     def basename(self):
         """
@@ -74,7 +74,7 @@ class StashTree:
     def __init__(self, rootpath):
         self.root = os.path.abspath(rootpath)
 
-    def hash(self, filename):
+    def hash_string(self, filename):
         """
         Return the base62 encoding of the md5 hash of a file.
         """
@@ -88,37 +88,42 @@ class StashTree:
         infile.close()
         return base62.encode(int(hasher.hexdigest(), 16))
 
-    def insert(self, filename, stash):
+    def insert(self, filename, stash, hash_string=None):
         """
-        Add a new file to the stash.
+        Add a new file to the stash.  If the hash is provided it will
+        be used, instead of computing the hash.
         """
         name, extension = os.path.splitext(filename)
-        hash = self.hash(filename)
-        if not stash.check_hash(hash):
-            raise ValueError('File exists')            
-        dir = os.path.join(self.root, hash[:2])
+        if hash_string is None:
+            hash_string = self.hash_string(filename)
+            if not stash.check_hash(hash_string):
+                raise ValueError('Hash is in use already.')
+        dir = os.path.join(self.root, str(hash_string[:2]))
         os.makedirs(dir, exist_ok=True)
-        path = os.path.join(dir, hash + extension)
-        shutil.copy(filename, path)
-        return hash
+        path = os.path.join(dir, hash_string + extension)
+        if not os.path.exists(path):
+            shutil.copy(filename, path)
+        else:
+            raise ValueError('File exists.')
+        return hash_string
 
-    def delete(self, hash):
+    def delete(self, hash_string):
         """
         Delete a stashed file.
         """
-        dir = os.path.join(self.root, hash[:2])
+        dir = os.path.join(self.root, hash_string[:2])
         for filename in os.listdir(dir):
-            if filename.startswith(hash):
+            if filename.startswith(hash_string):
                 break
         else:
             return
         os.unlink(os.path.join(dir, filename))
 
-    def find(self, hash):
+    def find(self, hash_string):
         """
         Return the pathname of the stashed file with the specified hash.
         """
-        dir = os.path.join(self.root, hash[:2])
+        dir = os.path.join(self.root, hash_string[:2])
         for filename in os.listdir(dir):
-            if filename.startswith(hash):
-                return os.path.join(self.root, hash[:2], filename)
+            if filename.startswith(hash_string):
+                return os.path.join(self.root, hash_string[:2], filename)

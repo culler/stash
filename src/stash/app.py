@@ -27,6 +27,7 @@ import time
 import webbrowser
 import subprocess
 import json
+import plistlib
 from collections import OrderedDict
 from .stash import Stash, Field, StashError, __file__ as stashfile
 from . import __version__
@@ -364,10 +365,15 @@ class StashViewer():
         self.curdir = os.path.dirname(filename)
         if sys.platform == 'darwin':
             subprocess.call(['xattr', '-c', filename])
+        try:
+            hash_string = self.stash.check_file(filename)
+        except StashError as E:
+            showerror('Import File', E.value)
+            return
         webbrowser.open_new_tab('file://%s'%filename)
         metadata = OrderedDict([(x, '') for x in self.columns])
         dialog = MetadataEditor(self.root, metadata, self.stash.keywords,
-                                    'Create Metadata', hide_main=True)
+                                    'Create Metadata')
         if dialog.result is None:
             self.status.set('Import cancelled')
             self.root.after(1000, self.clear_status)
@@ -377,7 +383,7 @@ class StashViewer():
             time.sleep(1)
             subprocess.call(['xattr', '-c', filename])
         try:
-            self.stash.insert_file(filename, dialog.result)
+            self.stash.insert_file(filename, dialog.result, hash_string)
         except StashError as E:
             showerror('Import File', E.value)
         self.status.set('')
@@ -521,15 +527,12 @@ class RemoveQuestion(Dialog):
 
 class MetadataEditor(Dialog):
     def __init__(self, parent, metadata, keywords=[],
-                     title=None, hide_main=False):
+                     title=None):
         self.metadata = metadata
         self.keywords = keywords
         self.entries = OrderedDict()
         tk.Toplevel.__init__(self, parent)
-        if hide_main:
-            parent.withdraw()
-        else:
-            self.transient(parent)
+        self.transient(parent)
         if title:
             self.title(title)
         self.parent = parent
@@ -842,12 +845,16 @@ https://github.com/culler/stash"""%__version__)
         self.root.destroy()
 
     def open(self):
+        _, state = self.get_app_state()
+        initial_dir = state.get('parent_dir', self.curdir)
         directory = askdirectory(mustexist=True,
                                  title='Choose a stash',
-                                 initialdir=self.curdir)
+                                 initialdir=initial_dir)
         if directory is None or directory == '':
             return
         else:
+            state['parent_dir'] = os.path.dirname(directory)
+            self.save_app_state(state)
             self.launch_viewer(directory)
             self.curdir = os.path.dirname(directory)
 
@@ -900,14 +907,46 @@ https://github.com/culler/stash"""%__version__)
         webbrowser.open_new_tab('file:' + stash_doc_path)
 
     def enable_apple_events(self):
-        def doOpenFile(*args):
-            for arg in args:
-                dirname, filename = os.path.split(arg)
-                if filename == 'db.stash':
-                    startup_stashes.append(dirname)
-            self.startup_launch()
+        if sys.platform == 'darwin':
+            def doOpenFile(*args):
+                for arg in args:
+                    dirname, filename = os.path.split(arg)
+                    if filename == 'db.stash':
+                        startup_stashes.append(dirname)
+                self.startup_launch()
+            self.root.createcommand("::tk::mac::OpenDocument", doOpenFile)
 
-        self.root.createcommand("::tk::mac::OpenDocument", doOpenFile)
+    #### Add equivalent for other platforms ####
+    def _get_app_support_dir(self):
+        home = os.environ.get('HOME', None)
+        if home is None:
+            return None
+        if sys.platform == 'darwin':
+           return os.path.join(
+               home, 'Library', 'Application Support', 'Stash')
+
+    def get_app_state(self):
+        app_support_dir = self._get_app_support_dir()
+        if app_support_dir is None:
+            return None, {}
+        os.makedirs(app_support_dir, exist_ok=True)
+        state_file = os.path.join(app_support_dir, 'state.plist')
+        if os.path.exists(state_file):
+            try:
+                with open(state_file, 'rb') as plist_file:
+                    state = plistlib.load(plist_file)
+                return state_file, state
+            except plistlib.InvalidFileException:
+                os.unlink(state_file)
+        return state_file, {}
+
+    def save_app_state(self, state_dict):
+        state_file, state = self.get_app_state()
+        if state_file is None:
+            return
+        state.update(state_dict)
+        with open(state_file, 'wb') as plist_file:
+            plistlib.dump(state, plist_file)
 
     def run(self):
         self.root.mainloop()
