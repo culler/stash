@@ -233,7 +233,7 @@ class StashViewer():
         pane.columnconfigure(0, weight=1)
         label.grid(row=0, column=0, sticky=tk.EW)
         filter.grid(row=1, column=0, sticky=tk.EW)
-        listbox.grid(row=2, column=0, sticky=tk.NSEW)
+        listbox.grid(row=2, column=0, sticky=tk.NSEW, padx=5)
         self.mainlist.add(pane)
         self.mainlist.paneconfigure(pane, padx=0, pady=0)
         self.panes[column] = pane
@@ -661,8 +661,10 @@ class FieldEditor(Dialog):
         keylist.grid(row=0, column=0, columnspan=2, sticky=tk.NSEW)
         typelist.grid(row=0, column=2, columnspan=2, sticky=tk.NSEW)
         scrollbar.config(command=self.yview)
-        keylist.config(yscrollcommand=lambda lo, hi: self.sb_set(keylist, lo, hi))
-        typelist.config(yscrollcommand=lambda lo, hi: self.sb_set(typelist, lo, hi))
+        keylist.config(yscrollcommand=lambda lo, hi: self.sb_set(keylist,
+                        lo, hi))
+        typelist.config(yscrollcommand=lambda lo, hi: self.sb_set(typelist,
+                        lo, hi))
         scrollbar.grid(row=0, column=4, sticky=tk.NS)
         plusminus = ttk.Frame(parent)
         ttk.Button(plusminus, style='Toolbutton', text='+',
@@ -816,7 +818,8 @@ class StashApp:
                               command=self.open)
         File_menu.add_command(label='New...'+scut['New'], command=self.new)
         if sys.platform != 'darwin':
-            Application_menu.add_command(label='Quit Stash'+scut['Quit'], command=self.quit)
+            Application_menu.add_command(label='Quit Stash'+scut['Quit'],
+                                             command=self.quit)
             Help_menu.add_command(label='Stash Help', command=self.help)
         root.config(menu=menubar)
         self.startup_flag = False
@@ -949,6 +952,8 @@ https://github.com/culler/stash"""%__version__)
             plistlib.dump(state, plist_file)
 
     def run(self):
+        if not self.viewers:
+            self.root.after_idle(self.open)
         self.root.mainloop()
         
 def main():
