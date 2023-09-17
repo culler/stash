@@ -22,6 +22,7 @@
 #   Author homepage: https://marc-culler.info
 
 from .tree import StashTree
+from .schema import schema
 import os
 import sys
 import sqlite3
@@ -101,35 +102,11 @@ class Stash:
             os.mkdir(dirname)
             os.mkdir(rootdir)
             self.connection = sqlite3.connect(database)
-            self.connection.execute("""
-                create table preferences (
-                    name text not null,
-                    value text,
-                    target text not null,
-                    unique (name, target)
-                    on conflict replace)""")
-            self.connection.execute("""
-                create table files (
-                    _file_id integer primary key autoincrement,
-                    hash text not null unique,
-                    filename text,
-                    timestamp datetime)""")
-            self.connection.execute("""
-                create index file_index on files(_file_id)""")
-            self.connection.execute("""
-                create table keywords (
-                    _keyword_id integer primary key autoincrement,
-                    _keyword text,
-                    unique(_keyword_id, _keyword))""")
-            self.connection.execute("""
-                create index keyword_index on keywords(_keyword_id)""")
-            self.connection.execute("""
-                create table keyword_x_file (
-                    id integer primary key autoincrement,
-                    _file_id integer references files,
-                    _keyword_id integer references keywords)""")
+            for command in schema:
+                self.connection.execute(command)
             self.tree = StashTree(os.path.abspath(rootdir))
-            if sys.platform == 'win32': #Hide .stashfiles
+            #Hide .stashfiles on Windows
+            if sys.platform == 'win32':
                 os.system('attrib.exe +H %s'%rootdir)
                      
     def init_fields(self):
