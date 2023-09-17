@@ -27,9 +27,9 @@ import os
 import sys
 import sqlite3
 import subprocess
-import webbrowser
 import shutil
 from collections import defaultdict
+from .browse import browser
 
 class StashError(Exception):
     def __init__(self, value):
@@ -213,9 +213,10 @@ class Stash:
             # The webrowser module uses Preview for pdf files and Preview sets
             # the quarantine xattr whenever it is opens a file.  So far, it
             # seems to work to just clear the quarantine xattr before opening
-            # the file.
+            # the file.  Now that we are using a real browser this is not an
+            # issue.  Still, just in case ...
             subprocess.call(['xattr', '-c', path])
-        webbrowser.open_new_tab('file://%s'%path)
+        browser.open_new_tab('file://%s'%path)
 
     def set_fields(self, value_dict):
         """

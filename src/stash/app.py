@@ -24,12 +24,12 @@
 import os
 import sys
 import time
-import webbrowser
 import subprocess
 import json
 import plistlib
 from collections import OrderedDict
 from .stash import Stash, Field, StashError, __file__ as stashfile
+from .browse import browser
 from . import __version__
 import tkinter as tk
 from tkinter import ttk
@@ -370,7 +370,7 @@ class StashViewer():
         except StashError as E:
             showerror('Import File', E.value)
             return
-        webbrowser.open_new_tab('file://%s'%filename)
+        browser.open_new_tab('file://%s'%filename)
         metadata = OrderedDict([(x, '') for x in self.columns])
         dialog = MetadataEditor(self.root, metadata, self.stash.keywords,
                                     'Create Metadata')
@@ -907,7 +907,7 @@ https://github.com/culler/stash"""%__version__)
         self.launch_viewer(newstash)
 
     def help(self):
-        webbrowser.open_new_tab('file:' + stash_doc_path)
+        browser.open_new_tab('file:' + stash_doc_path)
 
     def enable_apple_events(self):
         if sys.platform == 'darwin':

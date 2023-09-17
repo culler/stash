@@ -22,7 +22,7 @@
 #   Author homepage: https://marc-culler.info
 
 from .stash import *
-import webbrowser, tempfile, subprocess
+import tempfile, subprocess
 
 class StashShell:
     """
