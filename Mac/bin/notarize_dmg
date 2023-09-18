@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+echo "Notarizing disk image ..."
 source IDs.sh
 DMG=Stash.dmg
 APP=dist/Stash.app

@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# The official Apple notarization dance ...
+
+bin/sign_stash
+bin/make_disk_image
+bin/notarize_app
+bin/make_disk_image
+bin/notarize_dmg
