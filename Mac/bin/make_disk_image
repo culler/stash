@@ -2,7 +2,7 @@
 DMG_NAME=Stash.dmg
 SOURCE=dist/Stash.app
 rm -f $DMG_NAME
-bin/create-dmg \
+/usr/local/bin/create-dmg \
   --volname Stash \
   --volicon stash_icon.icns \
   --background background.png \
