@@ -215,14 +215,12 @@ class StashViewer():
 
     def add_pane(self, column):
         # needs a minimum size if the lists are empty
-        pane = tk.PanedWindow(self.mainlist,
-                              orient=tk.VERTICAL,
-                              borderwidth=0,
-                              background='white')
-        label = ttk.Label(pane, text=column)
+        pane = ttk.PanedWindow(self.mainlist, orient=tk.VERTICAL)
+        label = ttk.Label(pane, text=column, padding=(5,0))
         filter = ttk.Entry(pane)
         listbox = Listbox(pane, height=10, borderwidth=0,
-                          selectmode=tk.SINGLE)
+            background='systemTextBackgroundColor',
+            selectmode=tk.SINGLE)
         listbox.viewer = self
         listbox.config(yscrollcommand = listbox.yscroll)
         listbox.bind('<Button-1>', self.select_row)
