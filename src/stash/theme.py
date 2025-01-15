@@ -34,10 +34,14 @@ class _StashStyle:
         if sys.platform == 'darwin':
             self.WindowBG = 'SystemDialogBackgroundActive'
             self.GroupBG = 'SystemSecondaryGroupBoxBackground'
+            self.ListboxBG = 'systemTextBackgroundColor'
         elif sys.platform == 'win32':
             self.WindowBG = self.GroupBG = 'SystemButtonHighlight'
+            self.ListboxBG = '#ffffff'
         else:
-            self.WindowBG = self.GroupBG = ttk_style.lookup('TLabelframe', 'background')
+            self.WindowBG = self.GroupBG = ttk_style.lookup(
+                'TLabelframe', 'background')
+            self.ListboxBG = '#ffffff'
         self.font_info = fi = Font(font=ttk_style.lookup('TLabel', 'font')).actual()
         fi['size'] = abs(fi['size']) # Why would the size be negative???
 
