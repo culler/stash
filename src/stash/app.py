@@ -219,7 +219,7 @@ class StashViewer():
         label = ttk.Label(pane, text=column, padding=(5,0))
         filter = ttk.Entry(pane)
         listbox = Listbox(pane, height=10, borderwidth=0,
-            background='systemTextBackgroundColor',
+            background=self.style.ListboxBG,
             selectmode=tk.SINGLE)
         listbox.viewer = self
         listbox.config(yscrollcommand = listbox.yscroll)
