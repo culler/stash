@@ -5,9 +5,9 @@ usage:
 	clean, dist, doc, testpypi-upload, and pypi-upload	
 
 doc:
-	rm -rf stash/doc/*
-	cd documentation ; make PYTHONEXE=python3.11 html
-	mv documentation/build/html stash/doc
+	rm -rf src/stash/doc/*
+	cd documentation ; make PYTHONEXE=python3.13 html
+	mv documentation/build/html src/stash/doc
 
 dist:
 # Unset PIP_CONFIG_FILE in case pip.conf sets user = True

@@ -89,26 +89,24 @@ class StashViewer():
     def __init__(self, app, directory):
         self.app = app
         self.stash_dir = directory
-        self.curdir = directory
         self.stash_name = os.path.basename(directory)
+        self.curdir = directory
+        self.window = window = tk.Toplevel(app.root, class_='stash')
+        window.title(self.stash_name)
+        window.protocol("WM_DELETE_WINDOW", self.close)
+        window.grid_columnconfigure(0, weight=1)
+        window.grid_rowconfigure(1, weight=1)
+        window.bind("<Return>", self.match)
         self.stash = Stash()
         self.stash.open(directory)
+        prefs = self.stash.get_preference('geometry')
+        saved_geometry = prefs[0]['value'] if prefs else None
         fields = self.stash.fields
         self.columns = columns = [x.name for x in fields]
         self.selected = None
-        self.root = root = tk.Toplevel(app.root, class_='stash')
-        self.style = StashStyle(root)
+        self.style = StashStyle(window)
         self.panes = {}
-        prefs = self.stash.get_preference('geometry')
-        if prefs:
-            root.geometry(prefs[0]['value'])
-        else:
-            root.geometry('+200+80')
-        root.title(self.stash_name)
-        root.protocol("WM_DELETE_WINDOW", self.close)
-        root.grid_columnconfigure(0, weight=1)
-        root.grid_rowconfigure(1, weight=1)
-        topframe = ttk.Frame(root)
+        topframe = ttk.Frame(window)
         topframe.grid(row=0, columnspan=2, sticky=tk.EW)
         gobutton = ttk.Button(topframe,
                              text='Show Files',
@@ -116,12 +114,12 @@ class StashViewer():
         gobutton.grid(row=0, column=0, sticky=tk.W+tk.S, padx=2)
         keyword_label = ttk.Label(topframe, text='with')
         keyword_label.grid(row=0, column=1, sticky=tk.E)
-        keyword_var = tk.StringVar(root)
+        keyword_var = tk.StringVar(window)
         keyword_var.set('Keywords')
         keyword_menu = tk.Menu(topframe)
         self.keyword_vars = {}
         for keyword in self.stash.keywords:
-            var = tk.IntVar(root)
+            var = tk.IntVar(window)
             keyword_menu.add_checkbutton(label=keyword, variable=var)
             self.keyword_vars[keyword] = var
         self.keyword_button = ttk.Menubutton(topframe, text='keywords',
@@ -130,7 +128,7 @@ class StashViewer():
         order_label = ttk.Label(topframe, text='sorted by')
         order_label.grid(row=0, column=3, sticky=tk.E)
         columns = self.columns
-        self.order_var = order_var = tk.StringVar(root)
+        self.order_var = order_var = tk.StringVar(window)
         order_var.set('timestamp')
         self.order_menu = order_menu = tk.Menu(topframe)
         for item in ['timestamp'] + columns:
@@ -138,12 +136,12 @@ class StashViewer():
         self.order_button = ttk.Menubutton(topframe, textvariable=order_var,
             menu=order_menu)
         self.order_button.grid(row=0, column=4, sticky=tk.W)
-        self.direction_var = direction_var = tk.StringVar(root)
+        self.direction_var = direction_var = tk.StringVar(window)
         self.direction = direction = ttk.OptionMenu(topframe, direction_var,
             'descending', 'descending', 'ascending')
         direction.grid(row=0, column=5, sticky=tk.W)
         topframe.grid_columnconfigure(5, weight=1)
-        self.mainlist = mainlist = tk.PanedWindow(root,
+        self.mainlist = mainlist = tk.PanedWindow(window,
                                                   borderwidth=0,
                                                   sashpad=0,
                                                   sashwidth=8,
@@ -152,7 +150,7 @@ class StashViewer():
                                                   showhandle=True,
                                                   sashrelief=tk.RAISED,
                                                   relief=tk.FLAT)
-        self.scrollbar = scrollbar = Scrollbar(root)
+        self.scrollbar = scrollbar = Scrollbar(window)
         self.listboxes = {}
         self.filters = {}
         for column in self.columns:
@@ -160,18 +158,18 @@ class StashViewer():
         scrollbar.config(command=self.yview)
         mainlist.grid(row=1, column=0, sticky=tk.NSEW)
         scrollbar.grid(row=1, column=1, sticky=tk.NS)
-        spacer = ttk.Frame(root, height=2, borderwidth=0)
+        spacer = ttk.Frame(window, height=2, borderwidth=0)
         spacer.grid(row=2, columnspan=2, sticky=tk.EW)
-        self.status = status = tk.StringVar(self.root)
-        statusbox = tk.Entry(self.root,
+        self.status = status = tk.StringVar(self.window)
+        statusbox = tk.Entry(self.window,
                              state=tk.DISABLED,
                              foreground='red',
                              disabledforeground='red',
                              textvariable=status,
                              relief=tk.FLAT)
         statusbox.grid(row=3, column=0, sticky=tk.EW, padx=20)
-        self.menubar = menubar = tk.Menu(root)
-        menubar = tk.Menu(self.root)
+        self.menubar = menubar = tk.Menu(window)
+        menubar = tk.Menu(self.window)
         Application_menu = tk.Menu(menubar, name="apple")
         menubar.add_cascade(label='Stash', menu=Application_menu)
         File_menu = tk.Menu(menubar, name="file")
@@ -198,10 +196,12 @@ class StashViewer():
             Application_menu.add_command(label='Quit Stash'+scut['Quit'],
                 command=self.app.quit)
             Help_menu.add_command(label='Stash Help', command=self.app.help)
-        root.config(menu=menubar)
+        window.config(menu=menubar)
+        if saved_geometry:
+            window.geometry(saved_geometry)
+        window.update_idletasks()
         self.set_sashes()
-        root.bind("<Return>", self.match)
-        root.update_idletasks()
+        window.update_idletasks()
         self.match()
 
     def update_keyword_menu(self):
@@ -209,7 +209,7 @@ class StashViewer():
         keyword_menu.delete(0, tk.END)
         self.keyword_vars = {}
         for keyword in self.stash.keywords:
-            var = tk.IntVar(self.root)
+            var = tk.IntVar(self.window)
             keyword_menu.add_checkbutton(label=keyword, variable=var)
             self.keyword_vars[keyword] = var
 
@@ -245,18 +245,19 @@ class StashViewer():
         if pref_value:
             coords = pref_value.split(':')
             for N in range(len(coords) - 1, -1, -1):
-                self.root.update()
+                self.window.update()
                 try:
                     self.mainlist.sash_place(N, coords[N], 0)
                 except tk.TclError:
+                    print('Failed to place sash')
                     pass
 
     def activate(self):
-        self.root.deiconify()
-        self.root.focus_force()
+        self.window.deiconify()
+        self.window.focus_force()
 
     def close(self):
-        self.stash.set_preference('geometry', self.root.geometry())
+        self.stash.set_preference('geometry', self.window.geometry())
         # This is tricky if the number of columns has changed.
         sashes = []
         N = 0
@@ -268,8 +269,8 @@ class StashViewer():
                 break
         self.stash.set_preference('sashes', ':'.join(sashes))
         self.stash.close()
-        self.app.checkout(self)
-        self.root.destroy()
+        self.app.close_viewer(self)
+        self.window.destroy()
 
     def scrollbar_set(self, widget, lo, hi):
         newtop = widget.nearest(0)
@@ -356,7 +357,7 @@ class StashViewer():
                                        filetypes=[('All files', '*')])
         if filename is None or filename=='':
             self.status.set('Import cancelled.')
-            self.root.after(1000, self.clear_status)
+            self.window.after(1000, self.clear_status)
             return
         if not os.path.isfile(filename):
             showerror('Import File', '%s is not a file.'%filename)
@@ -370,11 +371,11 @@ class StashViewer():
             return
         browser.open_new_tab('file://%s'%pathname2url(filename))
         metadata = OrderedDict([(x, '') for x in self.columns])
-        dialog = MetadataEditor(self.root, metadata, self.stash.keywords,
+        dialog = MetadataEditor(self.window, metadata, self.stash.keywords,
                                     'Create Metadata')
         if dialog.result is None:
             self.status.set('Import cancelled')
-            self.root.after(1000, self.clear_status)
+            self.window.after(1000, self.clear_status)
             return
         if sys.platform == 'darwin':
             # Give preview some time to do its mischief
@@ -403,7 +404,7 @@ class StashViewer():
     def export_the_file(self, row):
         default_filename = row['filename']
         default_extension = os.path.splitext(default_filename)[1]
-        filename = asksaveasfilename(parent=self.root,
+        filename = asksaveasfilename(parent=self.window,
                                      initialfile=default_filename,
                                      initialdir=self.stash_dir,
                                      defaultextension=default_extension,
@@ -426,10 +427,10 @@ class StashViewer():
         index = self.selected
         self.selected = None
         row = self.search_result[index]
-        dialog = RemoveQuestion(self.root, row, title='Remove File')
+        dialog = RemoveQuestion(self.window, row, title='Remove File')
         if dialog.result is None:
             self.status.set('Removal cancelled.')
-            self.root.after(1000, self.clear_status)
+            self.window.after(1000, self.clear_status)
             return
         if dialog.result['export first']:
             filename = self.export_file(index=index)
@@ -454,11 +455,11 @@ class StashViewer():
             return
         index = self.selected
         metadata = OrderedDict(self.search_result[index])
-        dialog = MetadataEditor(self.root, metadata, self.stash.keywords,
+        dialog = MetadataEditor(self.window, metadata, self.stash.keywords,
                                     'Edit Metadata')
         if dialog.result is None:
             self.status.set('Editing cancelled.')
-            self.root.after(1000, self.clear_status)
+            self.window.after(1000, self.clear_status)
             return
         metadata.update(dialog.result)
         self.search_result[index] = metadata
@@ -472,7 +473,7 @@ class StashViewer():
 
     def configure(self):
         self.status.set('Configure Stash.')
-        dialog = FieldEditor(self.root, self.stash,
+        dialog = FieldEditor(self.window, self.stash,
             title='Manage Metadata')
         add, delete = dialog.result
         for name, type in add:
@@ -789,13 +790,28 @@ class StashApp:
         self.curdir = os.path.expanduser('~')
         self.viewers = []
         self.root = root = tk.Tk(className='stash')
+        if tk.TkVersion >= 9.0:
+            root.wm_attributes(stylemask=('titled', 'fullsizecontent'))
         root.title('Stash')
-        if sys.platform == 'darwin':
-            self.enable_apple_events()
-            root.withdraw()
-        else:
+        _, state = self.get_app_state()
+        recents = state.get('recents', [])
+        self.recent_dirs = dict((os.path.basename(s), s) for s in recents)
+        frame = ttk.Frame(root, width=200, height=200)
+        recent_frame = ttk.LabelFrame(frame, text='Recent Stashes')
+        self.recent_list = tk.Listbox(recent_frame, height=5, borderwidth=0)
+        for stash_dir in self.recent_dirs:
+            name = os.path.basename(stash_dir)
+            self.recent_list.insert('end', name)
+        self.recent_list.bind('<ButtonRelease-1>', self.handle_recent)
+        self.recent_list.grid(row=0, column=0, padx=10, pady=10)
+        self.browse_button = ttk.Button(recent_frame,
+            text='Browse ...',
+            command = self.open)
+        self.browse_button.grid(row=1, column=0, sticky='s')
+        recent_frame.pack()
+        frame.pack(padx=20, pady=20)
+        if sys.platform != 'darwin':
             root.option_add('*tearOff', tk.FALSE)
-            root.geometry('300x0+100+10')
             root.tk.call('namespace', 'import', '::tk::dialog::file::')
             root.tk.call('set', '::tk::dialog::file::showHiddenBtn',  '1')
             root.tk.call('set', '::tk::dialog::file::showHiddenVar',  '0')
@@ -820,12 +836,17 @@ class StashApp:
                                              command=self.quit)
             Help_menu.add_command(label='Stash Help', command=self.help)
         root.config(menu=menubar)
-        self.startup_flag = False
+        root.focus_force()
+#        self.startup_flag = False
 
-    def startup_launch(self):
-        for stash in startup_stashes:
-            self.launch_viewer(stash)
-        self.startup_flag = True
+    def handle_recent(self, event):
+        stash_dir = self.recent_dirs[self.recent_list.selection_get()]
+        self.launch_viewer(stash_dir)
+
+    # def startup_launch(self):
+    #     for stash in startup_stashes:
+    #         self.launch_viewer(stash)
+    #     self.startup_flag = True
 
     def about(self):
         showinfo(title='About Stash',
@@ -853,11 +874,17 @@ https://github.com/culler/stash"""%__version__)
                                  initialdir=initial_dir)
         if directory is None or directory == '':
             return
-        else:
-            state['parent_dir'] = os.path.dirname(directory)
-            self.save_app_state(state)
-            self.launch_viewer(directory)
-            self.curdir = os.path.dirname(directory)
+        state['parent_dir'] = os.path.dirname(directory)
+        recents = state.get('recents', [])
+        try:
+            recents.remove(directory)
+        except ValueError:
+            pass
+        recents.insert(0, directory)
+        state['recents'] = recents[:5]
+        self.save_app_state(state)
+        self.launch_viewer(directory)
+        self.curdir = os.path.dirname(directory)
 
     def launch_viewer(self, directory):
         try:
@@ -866,23 +893,19 @@ https://github.com/culler/stash"""%__version__)
             showerror('Open Stash', E.value)
             return
         self.viewers.append(viewer)
+        self.root.withdraw()
             
-    def checkout(self, stash):
+    def close_viewer(self, stash):
         try:
             index = self.viewers.index(stash)
             self.viewers.remove(stash)
         except ValueError:
             pass
         if len(self.viewers) == 0:
-            if sys.platform != 'darwin':
-                self.quit()
-            else:
-                # This voodoo brings the application menu bar back
-                # when the last window closes. Without doing both of
-                # these you get a blank menu bar.
-                self.root.deiconify()
-                self.root.focus_force()
-                self.root.withdraw()
+            #### Need to update the recent dirs before closing the last viewer
+            self.root.deiconify()
+            self.root.update_idletasks()
+            self.root.focus_force()
 
     def new(self):
         newstash = asksaveasfilename(
@@ -907,17 +930,17 @@ https://github.com/culler/stash"""%__version__)
     def help(self):
         browser.open_new_tab('file://' + pathname2url(stash_doc_path))
 
-    def enable_apple_events(self):
-        if sys.platform == 'darwin':
-            def doOpenFile(*args):
-                for arg in args:
-                    dirname, filename = os.path.split(arg)
-                    if filename == 'db.stash':
-                        startup_stashes.append(dirname)
-                self.startup_launch()
-            self.root.createcommand("::tk::mac::OpenDocument", doOpenFile)
+        # def enable_apple_events(self):
+        # if sys.platform == 'darwin':
+        #     def open_file(*args):
+        #         for arg in args:
+        #             dirname, filename = os.path.split(arg)
+        #             if filename == 'db.stash':
+        #                 startup_stashes.append(dirname)
+        #         self.startup_launch()
+        #     self.root.createcommand("::tk::mac::OpenDocument", open_file)
 
-    #### Add equivalent for other platforms ####
+    #### Need to add equivalent for other platforms ####
     def _get_app_support_dir(self):
         home = os.environ.get('HOME', None)
         if home is None:
@@ -950,8 +973,6 @@ https://github.com/culler/stash"""%__version__)
             plistlib.dump(state, plist_file)
 
     def run(self):
-        if not self.viewers:
-            self.root.after_idle(self.open)
         self.root.mainloop()
         
 def main():

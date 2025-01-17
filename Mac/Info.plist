@@ -20,18 +20,14 @@
 	<string>APPL</string>
 	<key>CFBundleTypeName</key>
 	<string>Stash database</string>
-	<key>CFBundleTypeExtensions</key>
-	<array>
-		<string>stash</string>
-	</array>	
 	<key>CFBundleTypeIconFile</key>
 	<string>stash_icon.icns</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.0</string>
+	<string>2.1.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.0</string>
+	<string>2.1.0</string>
 	<key>LSHasLocalizedDisplayName</key>
 	<false/>
 	<key>NSAppleScriptEnabled</key>
@@ -71,16 +67,16 @@
 	<array/>
 	<key>PyRuntimeLocations</key>
 	<array>
-		<string>@executable_path/../Frameworks/Python.framework/Versions/3.11/Python</string>
+		<string>@executable_path/../Frameworks/Python.framework/Versions/3.13/Python</string>
 	</array>
 	<key>PythonInfoDict</key>
 	<dict>
 		<key>PythonExecutable</key>
 		<string>/Library/Frameworks/Python.framework/Versions/3.11/bin/python3</string>
 		<key>PythonLongVersion</key>
-		<string>3.11.2 (v3.11.2:878ead1ac1, Feb  7 2023, 10:02:41) [Clang 13.0.0 (clang-1300.0.29.30)]</string>
+		<string>Python 3.13.0 (v3.13.0:60403a5409f, Oct  7 2024, 00:37:40) [Clang 15.0.0 (clang-1500.3.9.4)]</string>
 		<key>PythonShortVersion</key>
-		<string>3.1</string>
+		<string>3.13</string>
 		<key>py2app</key>
 		<dict>
 			<key>alias</key>
@@ -88,7 +84,7 @@
 			<key>template</key>
 			<string>app</string>
 			<key>version</key>
-			<string>0.28.6</string>
+			<string>0.28.8</string>
 		</dict>
 	</dict>
 </dict>
