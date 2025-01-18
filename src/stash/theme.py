@@ -32,12 +32,15 @@ class _StashStyle:
     def __init__(self):
         self.ttk_style = ttk_style = ttk.Style()
         if sys.platform == 'darwin':
-            self.WindowBG = 'SystemDialogBackgroundActive'
-            self.GroupBG = 'SystemSecondaryGroupBoxBackground'
+            self.WindowBG = 'systemDialogBackgroundActive'
+            self.GroupBG = 'systemSecondaryGroupBoxBackground'
+            self.ListBG = 'systemWindowBackgroundColor'
         elif sys.platform == 'win32':
             self.WindowBG = self.GroupBG = 'SystemButtonHighlight'
+            self.ListBG = 'white'
         else:
             self.WindowBG = self.GroupBG = ttk_style.lookup('TLabelframe', 'background')
+            self.ListBG = 'white'
         self.font_info = fi = Font(font=ttk_style.lookup('TLabel', 'font')).actual()
         fi['size'] = abs(fi['size']) # Why would the size be negative???
 

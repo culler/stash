@@ -91,17 +91,18 @@ class StashViewer():
         self.stash_dir = directory
         self.stash_name = os.path.basename(directory)
         self.curdir = directory
+        self.stash = Stash()
+        self.stash.open(directory)
         self.window = window = tk.Toplevel(app.root, class_='stash')
-        # Disable tabbing by giving the viewer a unique tabbingid.
-        app.root.call('tk::unsupported::MacWindowStyle', 'tabbingid',
+        if sys.platform == 'darwin':
+            # Disable tabbing by giving the viewer a unique tabbingid.
+            app.root.call('tk::unsupported::MacWindowStyle', 'tabbingid',
             window._w, window.winfo_id())
         window.title(self.stash_name)
         window.protocol("WM_DELETE_WINDOW", self.close)
         window.grid_columnconfigure(0, weight=1)
         window.grid_rowconfigure(1, weight=1)
         window.bind("<Return>", self.match)
-        self.stash = Stash()
-        self.stash.open(directory)
         prefs = self.stash.get_preference('geometry')
         saved_geometry = prefs[0]['value'] if prefs else None
         fields = self.stash.fields
@@ -222,7 +223,7 @@ class StashViewer():
         label = ttk.Label(pane, text=column, padding=(5,0))
         filter = ttk.Entry(pane)
         listbox = Listbox(pane, height=10, borderwidth=0,
-            background='systemTextBackgroundColor',
+            background=self.style.ListBG,
             selectmode=tk.SINGLE)
         listbox.viewer = self
         listbox.config(yscrollcommand = listbox.yscroll)
@@ -796,9 +797,10 @@ class StashApp:
         if tk.TkVersion >= 9.0:
             root.wm_attributes(stylemask=('titled', 'fullsizecontent'))
         root.title('Stash')
-        # Disable tabbing by giving the window a unique tabbingid.
-        root.call('tk::unsupported::MacWindowStyle', 'tabbingid',
-            root._w, root.winfo_id())
+        if sys.platform == 'darwin':
+            # Disable tabbing by giving the window a unique tabbingid.
+            root.call('tk::unsupported::MacWindowStyle', 'tabbingid',
+                      root._w, root.winfo_id())
         _, state = self.get_app_state()
         recents = state.get('recents', [])
         self.recent_dirs = dict((os.path.basename(s), s) for s in recents)
