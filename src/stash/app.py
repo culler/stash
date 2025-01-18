@@ -92,6 +92,9 @@ class StashViewer():
         self.stash_name = os.path.basename(directory)
         self.curdir = directory
         self.window = window = tk.Toplevel(app.root, class_='stash')
+        # Disable tabbing by giving the viewer a unique tabbingid.
+        app.root.call('tk::unsupported::MacWindowStyle', 'tabbingid',
+            window._w, window.winfo_id())
         window.title(self.stash_name)
         window.protocol("WM_DELETE_WINDOW", self.close)
         window.grid_columnconfigure(0, weight=1)
@@ -793,6 +796,9 @@ class StashApp:
         if tk.TkVersion >= 9.0:
             root.wm_attributes(stylemask=('titled', 'fullsizecontent'))
         root.title('Stash')
+        # Disable tabbing by giving the window a unique tabbingid.
+        root.call('tk::unsupported::MacWindowStyle', 'tabbingid',
+            root._w, root.winfo_id())
         _, state = self.get_app_state()
         recents = state.get('recents', [])
         self.recent_dirs = dict((os.path.basename(s), s) for s in recents)
@@ -837,16 +843,10 @@ class StashApp:
             Help_menu.add_command(label='Stash Help', command=self.help)
         root.config(menu=menubar)
         root.focus_force()
-#        self.startup_flag = False
 
     def handle_recent(self, event):
         stash_dir = self.recent_dirs[self.recent_list.selection_get()]
         self.launch_viewer(stash_dir)
-
-    # def startup_launch(self):
-    #     for stash in startup_stashes:
-    #         self.launch_viewer(stash)
-    #     self.startup_flag = True
 
     def about(self):
         showinfo(title='About Stash',
@@ -929,16 +929,6 @@ https://github.com/culler/stash"""%__version__)
 
     def help(self):
         browser.open_new_tab('file://' + pathname2url(stash_doc_path))
-
-        # def enable_apple_events(self):
-        # if sys.platform == 'darwin':
-        #     def open_file(*args):
-        #         for arg in args:
-        #             dirname, filename = os.path.split(arg)
-        #             if filename == 'db.stash':
-        #                 startup_stashes.append(dirname)
-        #         self.startup_launch()
-        #     self.root.createcommand("::tk::mac::OpenDocument", open_file)
 
     #### Need to add equivalent for other platforms ####
     def _get_app_support_dir(self):
