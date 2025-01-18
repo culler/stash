@@ -1,7 +1,7 @@
 #   This file is part of the program Stash.
 #   Stash helps you to stash your files, and find them later.
 #
-#   Copyright (C) 2010-2023 by Marc Culler and others. 
+#   Copyright (C) 2010-2025 by Marc Culler and others. 
 #
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -794,7 +794,7 @@ class StashApp:
         self.curdir = os.path.expanduser('~')
         self.viewers = []
         self.root = root = tk.Tk(className='stash')
-        if tk.TkVersion >= 9.0:
+        if tk.TkVersion >= 9.0 and sys.platform == 'darwin':
             root.wm_attributes(stylemask=('titled', 'fullsizecontent'))
         root.title('Stash')
         if sys.platform == 'darwin':
@@ -940,6 +940,9 @@ https://github.com/culler/stash"""%__version__)
         if sys.platform == 'darwin':
            return os.path.join(
                home, 'Library', 'Application Support', 'Stash')
+        if sys.platform == 'linux':
+           return os.path.join(
+               home, '.local', 'state', 'Stash')
 
     def get_app_state(self):
         app_support_dir = self._get_app_support_dir()
