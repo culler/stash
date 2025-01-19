@@ -810,7 +810,7 @@ class StashApp:
         for stash_dir in self.recent_dirs:
             name = os.path.basename(stash_dir)
             self.recent_list.insert('end', name)
-        self.recent_list.bind('<ButtonRelease-1>', self.handle_recent)
+        self.recent_list.bind('<ButtonRelease-1>', self.open_recent)
         self.recent_list.grid(row=0, column=0, padx=10, pady=10)
         self.browse_button = ttk.Button(recent_frame,
             text='Browse ...',
@@ -846,7 +846,7 @@ class StashApp:
         root.config(menu=menubar)
         root.focus_force()
 
-    def handle_recent(self, event):
+    def open_recent(self, event):
         stash_dir = self.recent_dirs[self.recent_list.selection_get()]
         self.launch_viewer(stash_dir)
 
@@ -877,6 +877,11 @@ https://github.com/culler/stash"""%__version__)
         if directory is None or directory == '':
             return
         state['parent_dir'] = os.path.dirname(directory)
+        self.launch_viewer(directory)
+        self.curdir = os.path.dirname(directory)
+
+    def add_recent(self, directory):
+        _, state = self.get_app_state()
         recents = state.get('recents', [])
         try:
             recents.remove(directory)
@@ -885,8 +890,11 @@ https://github.com/culler/stash"""%__version__)
         recents.insert(0, directory)
         state['recents'] = recents[:5]
         self.save_app_state(state)
-        self.launch_viewer(directory)
-        self.curdir = os.path.dirname(directory)
+        self.recent_dirs = dict((os.path.basename(s), s) for s in recents)
+        self.recent_list.delete(0, 'end')
+        for stash_dir in self.recent_dirs:
+            name = os.path.basename(stash_dir)
+            self.recent_list.insert('end', name)
 
     def launch_viewer(self, directory):
         try:
@@ -896,6 +904,7 @@ https://github.com/culler/stash"""%__version__)
             return
         self.viewers.append(viewer)
         self.root.withdraw()
+        self.add_recent(directory)
             
     def close_viewer(self, stash):
         try:
@@ -941,8 +950,9 @@ https://github.com/culler/stash"""%__version__)
            return os.path.join(
                home, 'Library', 'Application Support', 'Stash')
         if sys.platform == 'linux':
-           return os.path.join(
-               home, '.local', 'state', 'Stash')
+            config_home = os.environ.get('XDG_CONFIG_H0ME',
+                os.path.join(home, '.local'))
+            return os.path.join(config_home, 'state', 'Stash')
 
     def get_app_state(self):
         app_support_dir = self._get_app_support_dir()
